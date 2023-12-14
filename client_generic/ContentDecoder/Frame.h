@@ -36,6 +36,10 @@
 #define USE_NEW_FFMPEG_API
 #endif
 
+#if defined(USE_NEW_FFMPEG_API) && defined(LINUX_GNU)
+#include "libavutil/imgutils.h"
+#endif
+
 namespace ContentDecoder
 {
 class CVideoFrame;
@@ -103,9 +107,17 @@ class CVideoFrame
 				
 				if (m_pFrame != NULL)
 				{
+#ifdef USE_NEW_FFMPEG_API
+					int32 numBytes = av_image_get_buffer_size( _format, _pCodecContext->width, _pCodecContext->height, 0 );
+#else
 					int32 numBytes = avpicture_get_size( _format, _pCodecContext->width, _pCodecContext->height );
+#endif
 					m_spBuffer = new Base::CAlignedBuffer( static_cast<uint32>(numBytes) * sizeof(uint8) );
+#ifdef USE_NEW_FFMPEG_API
+					av_image_fill_arrays( m_pFrame->data, m_pFrame->linesize, m_spBuffer->GetBufferPtr(), _format, _pCodecContext->width, _pCodecContext->height, 1 );
+#else
 					avpicture_fill( (AVPicture *)m_pFrame, m_spBuffer->GetBufferPtr(), _format, _pCodecContext->width, _pCodecContext->height );
+#endif
 				} else
 					g_Log->Error( "m_pFrame == NULL" );
 			}

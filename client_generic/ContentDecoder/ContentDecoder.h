@@ -145,7 +145,7 @@ struct sOpenVideoInfo
 	AVFrame			*m_pFrame;
 	AVFormatContext	*m_pFormatContext;
 	AVCodecContext	*m_pVideoCodecContext;
-	AVCodec			*m_pVideoCodec;
+	const AVCodec	*m_pVideoCodec;
 	AVStream		*m_pVideoStream;
 	int32			m_VideoStreamID;
 	uint32			m_totalFrameCount;

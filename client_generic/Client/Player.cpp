@@ -47,7 +47,6 @@
 #include	"RendererGL.h"
 #endif
 
-
 #include	"lua_playlist.h"
 #include	"Settings.h"
 #include	"ContentDownloader.h"
