@@ -334,7 +334,7 @@ AC_CHECK_LIB([rt],[clock_gettime],,
 
 if test "$IS_LINUX_GNU" = "true"; then
   dnl Check for Wayland and EGL
-  PKG_CHECK_MODULES([WAYLAND], [wayland-client >= 1.0 wayland-egl >= 1.0], [
+  PKG_CHECK_MODULES([WAYLAND], [wayland-client >= 1.0 wayland-egl >= 1.0 egl >= 1.0], [
     AC_DEFINE([HAVE_WAYLAND], [1], [Define if Wayland and EGL are available])
     WAYLAND_CFLAGS="$WAYLAND_CFLAGS"
     WAYLAND_LIBS="$WAYLAND_LIBS"
