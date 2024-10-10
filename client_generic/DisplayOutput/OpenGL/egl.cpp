@@ -1,5 +1,5 @@
 #ifndef	WIN32
-#ifndef     HAVE_WAYLAND
+#ifdef HAVE_WAYLAND
 
 #include <string>
 #include <iostream>
@@ -7,7 +7,7 @@
 #include <X11/extensions/Xrender.h>
 #include <X11/Xatom.h>
 
-#include "glx.h"
+#include "egl.h"
 #include "Log.h"
 #include "Exception.h"
 
@@ -41,11 +41,11 @@ static bool bScreensaverMode = false;
 
 /*
 */
-CUnixGL::CUnixGL() : CDisplayOutput()
+CWaylandGL::CWaylandGL() : CDisplayOutput()
 {
 }
 
-CUnixGL::~CUnixGL()
+CWaylandGL::~CWaylandGL()
 {
 #ifdef LINUX_GNU
   if (!bScreensaverMode) {
@@ -75,7 +75,7 @@ static Bool WaitForNotify( Display *dpy, XEvent *event, XPointer arg ) {
 #endif
 
 
-bool	CUnixGL::Initialize( const uint32 _width, const uint32 _height, const bool _bFullscreen )
+bool	CWaylandGL::Initialize( const uint32 _width, const uint32 _height, const bool _bFullscreen )
 {
     m_Width = _width;
     m_Height = _height;
@@ -263,7 +263,7 @@ bool	CUnixGL::Initialize( const uint32 _width, const uint32 _height, const bool 
 
 /*
 */
-void CUnixGL::Title( const std::string &_title )
+void CWaylandGL::Title( const std::string &_title )
 {
     XTextProperty textProp;
     textProp.value = (unsigned char *)_title.c_str();
@@ -276,7 +276,7 @@ void CUnixGL::Title( const std::string &_title )
 
 /*
 */
-void CUnixGL::setWindowDecorations( bool enabled )
+void CWaylandGL::setWindowDecorations( bool enabled )
 {
     unsigned char* pucData;
     int iFormat;
@@ -352,7 +352,7 @@ isWindowMapped(Display *dpy, Window *xWin)
 
 
 
-void CUnixGL::setFullScreen(bool enabled)
+void CWaylandGL::setFullScreen(bool enabled)
 {
     XWindowChanges changes;
     unsigned int valueMask = CWX | CWY | CWWidth | CWHeight;
@@ -426,7 +426,7 @@ void CUnixGL::setFullScreen(bool enabled)
 
 /*
 */
-void CUnixGL::alwaysOnTop()
+void CWaylandGL::alwaysOnTop()
 {
     //~ XClientMessageEvent xev;
     //~ memset(&xev, 0, sizeof(xev));
@@ -463,7 +463,7 @@ void CUnixGL::alwaysOnTop()
 
 /*
 */
-void CUnixGL::toggleVSync()
+void CWaylandGL::toggleVSync()
 {
     m_VSync = !m_VSync;
 
@@ -478,21 +478,21 @@ void CUnixGL::toggleVSync()
 
 /*
 */
-void CUnixGL::Update()
+void CWaylandGL::Update()
 {
     checkClientMessages();
 }
 
 /*
 */
-void CUnixGL::SwapBuffers()
+void CWaylandGL::SwapBuffers()
 {
     glXSwapBuffers( m_pDisplay, m_GlxWindow );
 }
 
 /*
 */
-/*bool CUnixGL::checkResizeEvent( ResizeEvent &event )
+/*bool CWaylandGL::checkResizeEvent( ResizeEvent &event )
 {
     XEvent xEvent;
     bool gotEvent = false;
@@ -520,7 +520,7 @@ void CUnixGL::SwapBuffers()
 
 /*
 */
-void CUnixGL::checkClientMessages()
+void CWaylandGL::checkClientMessages()
 {
     XEvent xEvent;
 
@@ -568,7 +568,7 @@ void CUnixGL::checkClientMessages()
 
 /*
 */
-/*bool CUnixGL::checkKeyEvent(KeyEvent& event)
+/*bool CWaylandGL::checkKeyEvent(KeyEvent& event)
 {
     XEvent xEvent;
     bool gotEvent = false;

@@ -332,7 +332,19 @@ AC_CHECK_LIB([rt],[clock_gettime],,
 	[AC_MSG_ERROR([you must install librt to compile electricsheep.])
 ])
 
+if test "$IS_LINUX_GNU" = "true"; then
+  dnl Check for Wayland and EGL
+  PKG_CHECK_MODULES([WAYLAND], [wayland-client >= 1.0 wayland-egl >= 1.0], [
+    AC_DEFINE([HAVE_WAYLAND], [1], [Define if Wayland and EGL are available])
+    WAYLAND_CFLAGS="$WAYLAND_CFLAGS"
+    WAYLAND_LIBS="$WAYLAND_LIBS"
+  ], [
+    AC_MSG_WARN([Wayland or EGL not found, defaulting to X.])
+  ])
 
+  AC_SUBST(WAYLAND_CFLAGS)
+  AC_SUBST(WAYLAND_LIBS)
+fi
 
 AC_OUTPUT([ 
 Makefile
