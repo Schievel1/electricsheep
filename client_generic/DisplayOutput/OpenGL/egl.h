@@ -31,9 +31,15 @@ class CWaylandGL : public CDisplayOutput
     wl_shell         *m_Shell;
     wl_shell_surface *m_ShellSurface;
     wl_egl_window    *m_EGLWindow;
+    wl_output        *m_Output;
+    // test code
+    wl_region* region;
+
     EGLDisplay m_EGLDisplay;
     EGLContext m_EGLContext;
     EGLSurface m_EGLSurface;
+    EGLConfig  m_EGLConfig;
+
     bool              m_FullScreen;
 
     uint32	m_WidthFS;

@@ -20,9 +20,11 @@ namespace DisplayOutput {
     CWaylandGL *waylandGL = static_cast<CWaylandGL*>(data);
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
-      waylandGL->SetCompositor((struct wl_compositor*)wl_registry_bind(registry, name, &wl_compositor_interface, 1));
+      waylandGL->m_Compositor = (struct wl_compositor*)wl_registry_bind(registry, name, &wl_compositor_interface, 1);
     } else if (strcmp(interface, wl_shell_interface.name) == 0) {
       waylandGL->m_Shell = (struct wl_shell*)wl_registry_bind(registry, name, &wl_shell_interface, 1); // Correct binding
+    } else if (strcmp(interface, wl_output_interface.name) == 0) {
+      waylandGL->m_Output = (struct wl_output*)wl_registry_bind(registry, name, &wl_output_interface, 1);
     }
 }
 
@@ -53,6 +55,9 @@ namespace DisplayOutput {
     if (m_Surface) {
       wl_surface_destroy(m_Surface);
     }
+    if (m_ShellSurface) {
+      wl_shell_surface_destroy(m_ShellSurface);
+    }
     if (m_pDisplay) {
       wl_display_disconnect(m_pDisplay);
     }
@@ -72,54 +77,162 @@ namespace DisplayOutput {
 
     // Add listeners to the registry to handle global events
     wl_registry_add_listener(registry, &registry_listener, this);
+    wl_display_dispatch(m_pDisplay);
     wl_display_roundtrip(m_pDisplay);
 
-    // Ensure that the surface is created correctly
+    assert(m_Compositor);
+    assert(m_Shell);
+
     m_Surface = wl_compositor_create_surface(m_Compositor);
     assert(m_Surface);
+	  fprintf(stderr, "Created surface\n");
+
+    m_ShellSurface = wl_shell_get_shell_surface(m_Shell, m_Surface);
+    assert(m_ShellSurface);
+	  fprintf(stderr, "Created shellsurface\n");
+
+    wl_shell_surface_set_toplevel(m_ShellSurface);
+
+
+    // test code
+    // region = wl_compositor_create_region(m_Compositor);
+    // wl_region_add(region, 0, 0,
+                  // 480,
+                  // 360);
+    // wl_surface_set_opaque_region(m_Surface, region);
+
 
     // Initialize EGL
+    EGLint major, minor, count, size, numConfigs;
+    EGLConfig *configs;
+    EGLint configAttribs[] = {
+		  EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		  EGL_RED_SIZE, 8,
+		  EGL_GREEN_SIZE, 8,
+		  EGL_BLUE_SIZE, 8,
+      EGL_DEPTH_SIZE, 24,
+		  EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		  EGL_NONE
+	  };
+    EGLint contextAttribs[] = {
+      EGL_CONTEXT_CLIENT_VERSION, 2, // OpenGL ES 2.0
+      EGL_NONE
+    };
     m_EGLDisplay = eglGetDisplay((EGLNativeDisplayType)m_pDisplay);
     assert(m_EGLDisplay);
+    if (m_EGLDisplay == EGL_NO_DISPLAY) {
+	    fprintf(stderr, "Can't create egl display\n");
+      return false;
+    } else {
+	    fprintf(stderr, "Created egl display\n");
+    }
 
-    eglInitialize(m_EGLDisplay, NULL, NULL);
+    if (!eglInitialize(m_EGLDisplay, &major, &minor)) {
+      printf("eglInitialize failed with error: 0x%x\n", eglGetError());
+      return false;
+    }
+    printf("EGL major: %d, minor %d\n", major, minor);
 
-    EGLint configAttribs[] = {
-      EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-      EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-      EGL_RED_SIZE, 8,
-      EGL_GREEN_SIZE, 8,
-      EGL_BLUE_SIZE, 8,
-      EGL_ALPHA_SIZE, 8,
-      EGL_DEPTH_SIZE, 24,
-      EGL_STENCIL_SIZE, 8,
+    // if (!eglBindAPI(EGL_OPENGL_ES_API)) {
+    //   printf("eglBindAPI failed with error: 0x%x\n", eglGetError());
+    //   return false;
+    // }
+
+    if (!eglGetConfigs(m_EGLDisplay, NULL, 0, &count) || count < 1) {
+      fprintf(stderr, "Failed to get configs\n");
+      return false;
+    }
+    printf("EGL has %d configs\n", count);
+
+    configs = (EGLConfig*)calloc(count, sizeof(EGLConfig));
+    if (!configs) {
+      fprintf(stderr, "Failed to allocate config list");
+      return false;
+    }
+
+    if (!eglChooseConfig(m_EGLDisplay, configAttribs, configs, count, &numConfigs) || numConfigs == 0) {
+      printf("eglChooseConfig failed with error: 0x%x\n", eglGetError());
+      return false;
+    }
+
+    printf("EGL has %d matching configs\n", numConfigs);
+    for (int i = 0; i < numConfigs; i++) {
+	    eglGetConfigAttrib(m_EGLDisplay,
+			                   configs[i], EGL_BUFFER_SIZE, &size);
+	    printf("Buffer size for config %d is %d\n", i, size);
+	    eglGetConfigAttrib(m_EGLDisplay,
+			                   configs[i], EGL_RED_SIZE, &size);
+	    printf("Red size for config %d is %d\n", i, size);
+    }
+
+	  m_EGLConfig = configs[0];
+
+    m_EGLContext = eglCreateContext(m_EGLDisplay, m_EGLConfig, EGL_NO_CONTEXT, contextAttribs);
+    if (m_EGLContext == EGL_NO_CONTEXT) {
+      printf("eglCreateContext failed with error: 0x%x\n", eglGetError());
+      return false;
+    }
+
+
+    /* second roundtrip: receive names from the outputs */
+    // wl_display_roundtrip(m_pDisplay);
+    /* after this roundtrip, should have received a configure event */
+    // wl_display_roundtrip(m_pDisplay);
+
+
+    // Create an EGL window surface
+    EGLint surfaceAttribs[] = {
+      EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
       EGL_NONE
     };
 
-    EGLConfig config;
-    EGLint numConfigs;
-    eglChooseConfig(m_EGLDisplay, configAttribs, &config, 1, &numConfigs);
-    assert(numConfigs > 0);
-
-    m_EGLContext = eglCreateContext(m_EGLDisplay, config, EGL_NO_CONTEXT, NULL);
-    assert(m_EGLContext);
-
     m_EGLWindow = wl_egl_window_create(m_Surface, _width, _height);
-    assert(m_EGLWindow);
+    if (!m_EGLWindow) {
+      printf("wl_egl_window_create failed\n");
+      return false;
+    }
 
-    m_EGLSurface = eglCreateWindowSurface(m_EGLDisplay, config, (EGLNativeWindowType)m_EGLWindow, NULL);
-    assert(m_EGLSurface);
+    m_EGLSurface = eglCreateWindowSurface(m_EGLDisplay, m_EGLConfig, (EGLNativeWindowType)m_EGLWindow, surfaceAttribs);
+    if (m_EGLSurface == EGL_NO_SURFACE) {
+      printf("eglCreateWindowSurface failed with error: 0x%x\n", eglGetError());
+      return false;
+    }
 
-    eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, m_EGLContext);
+    if (!eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, m_EGLContext)) {
+      printf("eglMakeCurrent failed with error: 0x%x\n", eglGetError());
+      return false;
+    }
 
-    // Set OpenGL viewport
-    glViewport(0, 0, _width, _height);
+    /* Ensure that buffer swaps for egl_surface are not synchronized
+     * to the compositor, as this would result in blocking and round-robin
+     * updates when there are multiple outputs */
+    if (!eglSwapInterval(m_EGLDisplay, 0)) {
+      fprintf(stderr, "Failed to set swap interval\n");
+      return false;
+    }
+
+    // glViewport(0, 0, _width, _height);
+
+      glClearColor(1.0, 1.0, 0.0, 1.0);
+      glClear(GL_COLOR_BUFFER_BIT);
+      glFlush();
+
+    if (eglSwapBuffers(m_EGLDisplay, m_EGLSurface)) {
+      fprintf(stderr, "Swapped buffers\n");
+    } else {
+      fprintf(stderr, "Swapped buffers failed\n");
+    }
+
+    free(configs);
+
+    Title("Electric Sheep");
 
     return true;
   }
 
   void CWaylandGL::Title(const std::string &_title) {
     // Set window title
+    wl_shell_surface_set_title(m_ShellSurface, &_title[0]);
   }
 
   void CWaylandGL::setFullScreen(bool enabled) {
@@ -127,11 +240,31 @@ namespace DisplayOutput {
   }
 
   void CWaylandGL::Update() {
+    printf("Update...\n");
     checkClientMessages();
   }
 
   void CWaylandGL::SwapBuffers() {
-    eglSwapBuffers(m_EGLDisplay, m_EGLSurface);
+    static bool color_toggle = false;
+    printf("Swapping buffers\n");
+    if (color_toggle) {
+      glClearColor(1.0, 0.0, 1.0, 1.0);
+      color_toggle = false;
+    } else {
+      glClearColor(0.0, 0.0, 1.0, 1.0);
+      color_toggle = true;
+    }
+    glClear(GL_COLOR_BUFFER_BIT);
+    glFlush();
+    if (eglSwapBuffers(m_EGLDisplay, m_EGLSurface)) {
+      fprintf(stderr, "Swapped buffers\n");
+    } else {
+      fprintf(stderr, "Swapped buffers failed\n");
+    }
+    if (eglGetError() != EGL_SUCCESS) {
+      printf("Failed to swap buffers");
+    }
+    exit(0); // DEBUG
   }
 
   void CWaylandGL::checkClientMessages() {
