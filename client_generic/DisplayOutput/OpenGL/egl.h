@@ -12,6 +12,7 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <unistd.h>
+#include "xdg-shell.h"
 
 #ifndef LINUX_GNU
 #include "GLee.h"
@@ -25,20 +26,23 @@ namespace	DisplayOutput
 
 class CWaylandGL : public CDisplayOutput
 {
-    wl_display       *m_pDisplay;
-    wl_compositor    *m_Compositor;
-    wl_surface       *m_Surface;
-    wl_shell         *m_Shell;
-    wl_shell_surface *m_ShellSurface;
-    wl_egl_window    *m_EGLWindow;
-    wl_output        *m_Output;
+    wl_display       *m_pDisplay = nullptr;
+    wl_compositor    *m_Compositor = nullptr;
+    wl_surface       *m_Surface = nullptr;
+    wl_shell         *m_Shell = nullptr;
+    zxdg_shell_v6    *m_XdgShell = nullptr;
+    zxdg_surface_v6    *m_XdgSurface = nullptr;
+    zxdg_toplevel_v6 *m_XdgToplevel = nullptr;
+    wl_shell_surface *m_ShellSurface = nullptr;
+    wl_egl_window    *m_EGLWindow = nullptr;
+    wl_output        *m_Output = nullptr;
     // test code
-    wl_region* region;
+    wl_region* region = nullptr;
 
-    EGLDisplay m_EGLDisplay;
-    EGLContext m_EGLContext;
-    EGLSurface m_EGLSurface;
-    EGLConfig  m_EGLConfig;
+    EGLDisplay m_EGLDisplay = nullptr;
+    EGLContext m_EGLContext = nullptr;
+    EGLSurface m_EGLSurface = nullptr;
+    EGLConfig  m_EGLConfig = nullptr;
 
     bool              m_FullScreen;
 
@@ -59,6 +63,7 @@ class CWaylandGL : public CDisplayOutput
 			virtual void Title( const std::string &_title );
 			virtual void Update();
 
+            void    request_next_frame();
 			void SwapBuffers();
 
             // Add a setter for setting m_Compositor

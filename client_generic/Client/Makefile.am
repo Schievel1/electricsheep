@@ -37,6 +37,7 @@ Hud.cpp \
 ../DisplayOutput/OpenGL/RendererGL.cpp \
 ../DisplayOutput/OpenGL/glx.cpp \
 ../DisplayOutput/OpenGL/egl.cpp \
+../DisplayOutput/OpenGL/xdg-shell.c \
 ../DisplayOutput/OpenGL/ShaderGL.cpp \
 ../DisplayOutput/OpenGL/TextureFlatGL.cpp \
 ../DisplayOutput/OpenGL/wgl.cpp \
