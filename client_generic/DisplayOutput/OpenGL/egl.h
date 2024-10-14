@@ -13,6 +13,7 @@
 #include <EGL/eglext.h>
 #include <unistd.h>
 #include "xdg-shell.h"
+#include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #ifndef LINUX_GNU
 #include "GLee.h"
@@ -29,11 +30,12 @@ class CWaylandGL : public CDisplayOutput
     wl_display       *m_pDisplay = nullptr;
     wl_compositor    *m_Compositor = nullptr;
     wl_surface       *m_Surface = nullptr;
-    wl_shell         *m_Shell = nullptr;
+    zwlr_layer_shell_v1 *m_Shell = nullptr;
     xdg_wm_base      *m_XdgWmBase = nullptr;
     xdg_surface    *m_XdgSurface = nullptr;
     xdg_toplevel *m_XdgToplevel = nullptr;
     wl_shell_surface *m_ShellSurface = nullptr;
+    zwlr_layer_surface_v1 *layer_surface = nullptr;
     wl_egl_window    *m_EGLWindow = nullptr;
     wl_output        *m_Output = nullptr;
     // test code
@@ -45,6 +47,7 @@ class CWaylandGL : public CDisplayOutput
     EGLConfig  m_EGLConfig = nullptr;
 
     bool              m_FullScreen;
+    bool              m_Background = false;
 
     uint32	m_WidthFS;
     uint32	m_HeightFS;

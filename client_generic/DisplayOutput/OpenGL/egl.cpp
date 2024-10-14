@@ -36,6 +36,9 @@ namespace DisplayOutput {
       xdg_wm_base_add_listener(waylandGL->m_XdgWmBase, &xdg_wm_base_listener, waylandGL);
     } else if (strcmp(interface, wl_output_interface.name) == 0) {
       waylandGL->m_Output = (struct wl_output*)wl_registry_bind(registry, name, &wl_output_interface, 1);
+    } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
+      waylandGL->m_Shell = (struct zwlr_layer_shell_v1*)wl_registry_bind(registry, name,
+                                 &zwlr_layer_shell_v1_interface, 1);
     }
 }
 
@@ -81,6 +84,20 @@ namespace DisplayOutput {
     .configure = xdg_surface_configure_handler
   };
 
+  void zwlr_layer_surface_configure_handler
+(
+ void *data,
+ struct zwlr_layer_surface_v1 *zwlr_layer_surface_v1,
+ uint32_t serial,
+ uint32_t width,
+ uint32_t height
+ ) {
+    zwlr_layer_surface_v1_ack_configure(zwlr_layer_surface_v1, serial);
+  }
+
+  const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
+    .configure = zwlr_layer_surface_configure_handler
+  };
 
   CWaylandGL::CWaylandGL() : CDisplayOutput() {
     // Constructor initialization
@@ -132,23 +149,49 @@ namespace DisplayOutput {
     assert(m_Compositor);
     assert(m_XdgWmBase);
 
+
+    const char *is_background = getenv("ELECTRICSHEEP_BACKGROUND");
+
+    if (is_background) {
+      m_Background = true;
+    }
+
     m_Surface = wl_compositor_create_surface(m_Compositor);
-    assert(m_Surface);
-	  fprintf(stderr, "Created surface\n");
 
-    m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
-    assert(m_XdgSurface);
-    xdg_surface_add_listener(m_XdgSurface, &xdg_surface_listener, NULL);
-	  fprintf(stderr, "Created shellsurface\n");
+    if (!m_Background) {
+      assert(m_Surface);
+	    fprintf(stderr, "Created surface\n");
 
-    m_XdgToplevel = xdg_surface_get_toplevel(m_XdgSurface);
-    assert(m_XdgToplevel);
-    xdg_toplevel_add_listener(m_XdgToplevel, &xdg_toplevel_listener, NULL);
-    fprintf(stderr, "Created toplevel\n");
+      m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
+      assert(m_XdgSurface);
+      xdg_surface_add_listener(m_XdgSurface, &xdg_surface_listener, NULL);
+	    fprintf(stderr, "Created shellsurface\n");
 
-    wl_surface_commit(m_Surface);
-    wl_display_roundtrip(m_pDisplay);
-    wl_surface_commit(m_Surface);
+      m_XdgToplevel = xdg_surface_get_toplevel(m_XdgSurface);
+      assert(m_XdgToplevel);
+      xdg_toplevel_add_listener(m_XdgToplevel, &xdg_toplevel_listener, NULL);
+      fprintf(stderr, "Created toplevel\n");
+
+    } else {
+      if (!m_Shell) {
+        fprintf(stderr, "Compositor does not support layer shell\n");
+        return false;
+      }
+      layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+                                            m_Shell, m_Surface, m_Output,
+                                            ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND, "wallpaper");
+      zwlr_layer_surface_v1_set_size(layer_surface, 0, 0);
+      zwlr_layer_surface_v1_set_anchor(layer_surface, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+                                        ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+                                        ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT |
+                                        ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM);
+      zwlr_layer_surface_v1_set_exclusive_zone(layer_surface, -1);
+      zwlr_layer_surface_v1_add_listener(layer_surface, &layer_surface_listener, m_Output);
+    }
+
+      wl_surface_commit(m_Surface);
+      wl_display_roundtrip(m_pDisplay);
+      wl_surface_commit(m_Surface);
 
     // Initialize EGL
     EGLint major, minor, count, size, numConfigs;
@@ -279,7 +322,8 @@ namespace DisplayOutput {
 
   void CWaylandGL::Title(const std::string &_title) {
     // Set window title
-    xdg_toplevel_set_title(m_XdgToplevel, _title.c_str());
+    if (!m_Background)
+      xdg_toplevel_set_title(m_XdgToplevel, _title.c_str());
   }
 
   void CWaylandGL::setFullScreen(bool enabled) {

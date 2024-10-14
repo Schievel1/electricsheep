@@ -38,6 +38,7 @@ Hud.cpp \
 ../DisplayOutput/OpenGL/glx.cpp \
 ../DisplayOutput/OpenGL/egl.cpp \
 ../DisplayOutput/OpenGL/xdg-shell.c \
+../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-client-protocol.c \
 ../DisplayOutput/OpenGL/ShaderGL.cpp \
 ../DisplayOutput/OpenGL/TextureFlatGL.cpp \
 ../DisplayOutput/OpenGL/wgl.cpp \
