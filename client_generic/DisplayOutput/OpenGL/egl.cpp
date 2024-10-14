@@ -16,13 +16,24 @@
 
 namespace DisplayOutput {
 
+  static void
+  xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+  {
+    xdg_wm_base_pong(xdg_wm_base, serial);
+  }
+
+  static const struct xdg_wm_base_listener xdg_wm_base_listener = {
+    .ping = xdg_wm_base_ping,
+  };
+
   void registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL*>(data);
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
       waylandGL->m_Compositor = (struct wl_compositor*)wl_registry_bind(registry, name, &wl_compositor_interface, 1);
-    } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
-      waylandGL->m_XdgShell = (struct zxdg_shell_v6*)wl_registry_bind(registry, name, &zxdg_shell_v6_interface, 1);
+    } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+      waylandGL->m_XdgWmBase = (struct xdg_wm_base*)wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+      xdg_wm_base_add_listener(waylandGL->m_XdgWmBase, &xdg_wm_base_listener, waylandGL);
     } else if (strcmp(interface, wl_output_interface.name) == 0) {
       waylandGL->m_Output = (struct wl_output*)wl_registry_bind(registry, name, &wl_output_interface, 1);
     }
@@ -36,7 +47,7 @@ namespace DisplayOutput {
   void xdg_toplevel_configure_handler
 (
  void *data,
- struct zxdg_toplevel_v6 *xdg_toplevel,
+ struct xdg_toplevel *xdg_toplevel,
  int32_t width,
  int32_t height,
  struct wl_array *states
@@ -47,12 +58,12 @@ namespace DisplayOutput {
   void xdg_toplevel_close_handler
 (
  void *data,
- struct zxdg_toplevel_v6 *xdg_toplevel
+ struct xdg_toplevel *xdg_toplevel
  ) {
     printf("close\n");
   }
 
-  const struct zxdg_toplevel_v6_listener xdg_toplevel_listener = {
+  const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = xdg_toplevel_configure_handler,
     .close = xdg_toplevel_close_handler
   };
@@ -60,15 +71,16 @@ namespace DisplayOutput {
   void xdg_surface_configure_handler
 (
  void *data,
- struct zxdg_surface_v6 *xdg_surface,
+ struct xdg_surface *xdg_surface,
  uint32_t serial
  ) {
-    zxdg_surface_v6_ack_configure(xdg_surface, serial);
+    xdg_surface_ack_configure(xdg_surface, serial);
   }
 
-  const struct zxdg_surface_v6_listener xdg_surface_listener = {
+  const struct xdg_surface_listener xdg_surface_listener = {
     .configure = xdg_surface_configure_handler
   };
+
 
   CWaylandGL::CWaylandGL() : CDisplayOutput() {
     // Constructor initialization
@@ -118,20 +130,20 @@ namespace DisplayOutput {
     wl_display_roundtrip(m_pDisplay);
 
     assert(m_Compositor);
-    assert(m_XdgShell);
+    assert(m_XdgWmBase);
 
     m_Surface = wl_compositor_create_surface(m_Compositor);
     assert(m_Surface);
 	  fprintf(stderr, "Created surface\n");
 
-    m_XdgSurface = zxdg_shell_v6_get_xdg_surface(m_XdgShell, m_Surface);
+    m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
     assert(m_XdgSurface);
-    zxdg_surface_v6_add_listener(m_XdgSurface, &xdg_surface_listener, NULL);
+    xdg_surface_add_listener(m_XdgSurface, &xdg_surface_listener, NULL);
 	  fprintf(stderr, "Created shellsurface\n");
 
-    m_XdgToplevel = zxdg_surface_v6_get_toplevel(m_XdgSurface);
+    m_XdgToplevel = xdg_surface_get_toplevel(m_XdgSurface);
     assert(m_XdgToplevel);
-    zxdg_toplevel_v6_add_listener(m_XdgToplevel, &xdg_toplevel_listener, NULL);
+    xdg_toplevel_add_listener(m_XdgToplevel, &xdg_toplevel_listener, NULL);
     fprintf(stderr, "Created toplevel\n");
 
     wl_surface_commit(m_Surface);
@@ -267,7 +279,7 @@ namespace DisplayOutput {
 
   void CWaylandGL::Title(const std::string &_title) {
     // Set window title
-    zxdg_toplevel_v6_set_title(m_XdgToplevel, _title.c_str());
+    xdg_toplevel_set_title(m_XdgToplevel, _title.c_str());
   }
 
   void CWaylandGL::setFullScreen(bool enabled) {

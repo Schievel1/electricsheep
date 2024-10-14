@@ -30,9 +30,9 @@ class CWaylandGL : public CDisplayOutput
     wl_compositor    *m_Compositor = nullptr;
     wl_surface       *m_Surface = nullptr;
     wl_shell         *m_Shell = nullptr;
-    zxdg_shell_v6    *m_XdgShell = nullptr;
-    zxdg_surface_v6    *m_XdgSurface = nullptr;
-    zxdg_toplevel_v6 *m_XdgToplevel = nullptr;
+    xdg_wm_base      *m_XdgWmBase = nullptr;
+    xdg_surface    *m_XdgSurface = nullptr;
+    xdg_toplevel *m_XdgToplevel = nullptr;
     wl_shell_surface *m_ShellSurface = nullptr;
     wl_egl_window    *m_EGLWindow = nullptr;
     wl_output        *m_Output = nullptr;
