@@ -262,13 +262,12 @@ namespace DisplayOutput {
 
     free(configs);
 
-    Title("Electric Sheep");
-
     return true;
   }
 
   void CWaylandGL::Title(const std::string &_title) {
     // Set window title
+    zxdg_toplevel_v6_set_title(m_XdgToplevel, _title.c_str());
   }
 
   void CWaylandGL::setFullScreen(bool enabled) {
