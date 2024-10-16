@@ -133,7 +133,7 @@ void xdg_toplevel_configure_handler(void *data,
 }
 
 void xdg_toplevel_close_handler(void *data, struct xdg_toplevel *xdg_toplevel) {
-  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
+  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
   waylandGL->m_bClosed = true;
 }
 
@@ -201,7 +201,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
                             const bool _bFullscreen) {
   m_Width = m_WidthFS = _width;
   m_Height = m_HeightFS = _height;
-  fprintf(stderr, "CWaylandGL\n");
+  fprintf(stderr, "CWaylandGL()\n");
 
   // Connect to the Wayland display
   m_pDisplay = wl_display_connect(NULL);
@@ -235,7 +235,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
                             EGL_ALPHA_SIZE,
                             8,
                             EGL_RENDERABLE_TYPE,
-                            EGL_OPENGL_ES2_BIT,
+                            EGL_OPENGL_BIT,
                             EGL_NONE};
   EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
   m_EGLDisplay = eglGetDisplay((EGLNativeDisplayType)m_pDisplay);
