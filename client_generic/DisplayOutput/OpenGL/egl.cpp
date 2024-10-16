@@ -442,11 +442,12 @@ void CWaylandGL::setFullScreen(bool enabled) {
       } else {
 #ifdef HAVE_LIBDECOR
         if (using_csd)
-          libdecor_frame_unset_fullscreen(frame)
+          libdecor_frame_unset_fullscreen(frame);
         else
 #endif
           xdg_toplevel_unset_fullscreen(m_XdgToplevel);
       }
+  }
 }
 
 void CWaylandGL::Update() {

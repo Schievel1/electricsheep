@@ -97,7 +97,14 @@ class CWaylandGL : public CDisplayOutput
 
 };
 
-// typedef	CWaylandGL	CDisplayGL;
+#if defined(HAVE_WAYLAND) && !defined(HAVE_X11)
+/* See player.cpp
+- If we have wayland and X11, we decide at runtime to load CWaylandGL in player.cpp
+- If we have wayland and no X11, typedef CWaylandGL to CDisplayGL and egl.h gets included in DisplayGL.h
+- If we have X11 and no wayland, typedef CDisplayGL to CWaylandGL and glx.h gets included in DisplayGL.h
+*/
+typedef	CWaylandGL	CDisplayGL;
+#endif
 
 }
 

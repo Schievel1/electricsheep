@@ -212,13 +212,6 @@ AC_SUBST(PNG_LIBS)
 
 
 
-dnl Check for Xrender
-
-PKG_CHECK_MODULES(XRENDER,xrender)
-
-AC_SUBST(XRENDER_CFLAGS)
-AC_SUBST(XRENDER_LIBS)
-
 
 # Check for flam3-animate
 AC_PATH_PROG(FLAM3_ANIMATE, flam3-animate, no)
@@ -332,6 +325,26 @@ AC_CHECK_LIB([rt],[clock_gettime],,
 	[AC_MSG_ERROR([you must install librt to compile electricsheep.])
 ])
 
+dnl Add flag x11
+AC_ARG_WITH([x11],
+            [AS_HELP_STRING([--with-x11], [Build with X11 support])],
+            [with_x11=$withval], [with_x11=yes])
+
+AM_CONDITIONAL([WITH_X11], [test "$with_x11" = "yes"])
+
+dnl Check for Xrender
+if test "$with_x11" = "yes"; then
+    AC_CHECK_HEADERS([X11/Xlib.h], , AC_MSG_ERROR([Xlib.h not found. Install X11 development libraries.]))
+    PKG_CHECK_MODULES(XRENDER, xrender)
+    PKG_CHECK_MODULES([XRENDER], xrender, [
+      AC_DEFINE([HAVE_X11], [1], [Define if X11 is available])
+      XRENDER_CFLAGS="$XRENDER_CFLAGS"
+      XRENDER_LIBS="$XRENDER_LIBS"
+    ])
+    AC_SUBST(XRENDER_CFLAGS)
+    AC_SUBST(XRENDER_LIBS)
+fi
+
 dnl Add flag wayland
 AC_ARG_WITH([wayland],
             [AS_HELP_STRING([--with-wayland], [Build with Wayland support])],
@@ -344,26 +357,30 @@ if test "$with_wayland" = "yes"; then
     AC_DEFINE([HAVE_WAYLAND], [1], [Define if Wayland and EGL are available])
     WAYLAND_CFLAGS="$WAYLAND_CFLAGS"
     WAYLAND_LIBS="$WAYLAND_LIBS"
-  ], [
-    AC_MSG_WARN([Wayland or EGL not found, defaulting to X.])
   ])
 
   AC_SUBST(WAYLAND_CFLAGS)
   AC_SUBST(WAYLAND_LIBS)
-fi
 
-dnl Add flag libdecor
-AC_ARG_WITH([libdecor],
+  dnl Add flag libdecor
+  AC_ARG_WITH([libdecor],
     [AS_HELP_STRING([--with-libdecor],
     [Use libdecor for client side window decoration if compositor does not support server side decorations])],
-    [use_libdecor=$withval], [use_libdecor=no])
+    [use_libdecor=$withval], [use_libdecor=yes])
 
-dnl Check for libdecor
-if test "x$use_libdecor" = "xyes"; then
+  dnl Check for libdecor
+  if test "x$use_libdecor" = "xyes"; then
     PKG_CHECK_MODULES([LIBDECOR], [libdecor-0])
     AC_SUBST([LIBDECOR_CFLAGS])
     AC_SUBST([LIBDECOR_LIBS])
     AC_DEFINE([HAVE_LIBDECOR], [1], [Define if libdecor is available])
+  else
+    AC_MSG_WARN([Building for wayland without libdecor support. Window will not have title bar compositors that do not support server side decorations.])
+  fi
+fi
+
+if test "$IS_LINUX_GNU" = "true" && test "$with_x11" = "no" && test "$with_wayland" = "no"; then
+    AC_MSG_ERROR([On GNU/Linux, either --with-x11 or --with-wayland must be set.])
 fi
 
 AC_OUTPUT([ 
