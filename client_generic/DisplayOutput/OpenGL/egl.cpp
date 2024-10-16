@@ -17,77 +17,65 @@
 namespace DisplayOutput {
 
 #ifdef HAVE_LIBDECOR
-  void
-  frame_configure(struct libdecor_frame *frame,
-		              struct libdecor_configuration *configuration,
-		              void *user_data)
-  {
-    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
-	  struct libdecor_state *state;
-	  int width, height;
+void frame_configure(struct libdecor_frame *frame,
+                     struct libdecor_configuration *configuration,
+                     void *user_data) {
+  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
+  struct libdecor_state *state;
+  int width, height;
 
-	  if (!libdecor_configuration_get_content_size(configuration, frame,
-						                                     &width, &height)) {
-		  width = waylandGL->floating_width;
-		  height = waylandGL->floating_height;
-	  }
-
-	  waylandGL->content_width = width;
-	  waylandGL->content_height = height;
-
-	  wl_egl_window_resize(waylandGL->m_EGLWindow,
-			                   waylandGL->content_width, waylandGL->content_height,
-			                   0, 0);
-    glViewport(0, 0, waylandGL->content_width, waylandGL->content_height);
-
-	  state = libdecor_state_new(width, height);
-	  libdecor_frame_commit(frame, state, configuration);
-	  libdecor_state_free(state);
-
-	  /* store floating dimensions */
-	  if (libdecor_frame_is_floating(waylandGL->frame)) {
-		  waylandGL->floating_width = width;
-		  waylandGL->floating_height = height;
-	  }
-
-	  waylandGL->configured = true;
+  if (!libdecor_configuration_get_content_size(configuration, frame, &width,
+                                               &height)) {
+    width = waylandGL->floating_width;
+    height = waylandGL->floating_height;
   }
 
-  void
-  frame_close(struct libdecor_frame *frame,
-	            void *user_data)
-  {
-    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
+  waylandGL->content_width = width;
+  waylandGL->content_height = height;
 
-	  waylandGL->m_bClosed = true;
+  wl_egl_window_resize(waylandGL->m_EGLWindow, waylandGL->content_width,
+                       waylandGL->content_height, 0, 0);
+  glViewport(0, 0, waylandGL->content_width, waylandGL->content_height);
+
+  state = libdecor_state_new(width, height);
+  libdecor_frame_commit(frame, state, configuration);
+  libdecor_state_free(state);
+
+  /* store floating dimensions */
+  if (libdecor_frame_is_floating(waylandGL->frame)) {
+    waylandGL->floating_width = width;
+    waylandGL->floating_height = height;
   }
 
-  void
-  frame_commit(struct libdecor_frame *frame,
-	             void *user_data)
-  {
-    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
-    eglSwapBuffers(waylandGL->m_EGLDisplay, waylandGL->m_EGLSurface);
-  }
+  waylandGL->configured = true;
+}
 
-  static struct libdecor_frame_interface frame_interface = {
-	  frame_configure,
-	  frame_close,
-	  frame_commit,
-  };
+void frame_close(struct libdecor_frame *frame, void *user_data) {
+  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
 
-  static void
-  libdecor_error(struct libdecor *context,
-                 enum libdecor_error error,
-                 const char *message)
-  {
-    fprintf(stderr, "Caught error (%d): %s\n", error, message);
-    exit(EXIT_FAILURE);
-  }
+  waylandGL->m_bClosed = true;
+}
 
-  static struct libdecor_interface libdecor_interface = {
+void frame_commit(struct libdecor_frame *frame, void *user_data) {
+  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
+  eglSwapBuffers(waylandGL->m_EGLDisplay, waylandGL->m_EGLSurface);
+}
+
+static struct libdecor_frame_interface frame_interface = {
+    frame_configure,
+    frame_close,
+    frame_commit,
+};
+
+static void libdecor_error(struct libdecor *context, enum libdecor_error error,
+                           const char *message) {
+  fprintf(stderr, "Caught error (%d): %s\n", error, message);
+  exit(EXIT_FAILURE);
+}
+
+static struct libdecor_interface libdecor_interface = {
     libdecor_error,
-  };
+};
 #endif
 
 static void xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base,
@@ -118,9 +106,11 @@ void registry_handle_global(void *data, struct wl_registry *registry,
   } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
     waylandGL->m_Shell = (struct zwlr_layer_shell_v1 *)wl_registry_bind(
         registry, name, &zwlr_layer_shell_v1_interface, 1);
-  } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
-    waylandGL->m_DecorationManager = (struct zxdg_decoration_manager_v1 *)wl_registry_bind(
-        registry, name, &zxdg_decoration_manager_v1_interface, 1);
+  } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) ==
+             0) {
+    waylandGL->m_DecorationManager =
+        (struct zxdg_decoration_manager_v1 *)wl_registry_bind(
+            registry, name, &zxdg_decoration_manager_v1_interface, 1);
   }
 }
 
@@ -143,7 +133,8 @@ void xdg_toplevel_configure_handler(void *data,
 }
 
 void xdg_toplevel_close_handler(void *data, struct xdg_toplevel *xdg_toplevel) {
-  fprintf(stderr, "close\n");
+  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
+  waylandGL->m_bClosed = true;
 }
 
 const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -209,7 +200,7 @@ CWaylandGL::~CWaylandGL() {
 bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
                             const bool _bFullscreen) {
   m_Width = m_WidthFS = _width;
-  m_Height = m_HeightFS =  _height;
+  m_Height = m_HeightFS = _height;
   fprintf(stderr, "CWaylandGL\n");
 
   // Connect to the Wayland display
@@ -246,8 +237,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
                             EGL_RENDERABLE_TYPE,
                             EGL_OPENGL_ES2_BIT,
                             EGL_NONE};
-  EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2,
-                             EGL_NONE};
+  EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
   m_EGLDisplay = eglGetDisplay((EGLNativeDisplayType)m_pDisplay);
   assert(m_EGLDisplay);
   if (m_EGLDisplay == EGL_NO_DISPLAY) {
@@ -286,7 +276,8 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   m_EGLContext = eglCreateContext(m_EGLDisplay, m_EGLConfig, EGL_NO_CONTEXT,
                                   contextAttribs);
   if (m_EGLContext == EGL_NO_CONTEXT) {
-    fprintf(stderr, "eglCreateContext failed with error: 0x%x\n", eglGetError());
+    fprintf(stderr, "eglCreateContext failed with error: 0x%x\n",
+            eglGetError());
     return false;
   }
 
@@ -302,10 +293,11 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
 
   EGLint surfaceAttribs[] = {EGL_RENDER_BUFFER, EGL_BACK_BUFFER, EGL_NONE};
   m_EGLSurface =
-    eglCreateWindowSurface(m_EGLDisplay, m_EGLConfig,
-                           (EGLNativeWindowType)m_EGLWindow, surfaceAttribs);
+      eglCreateWindowSurface(m_EGLDisplay, m_EGLConfig,
+                             (EGLNativeWindowType)m_EGLWindow, surfaceAttribs);
   if (m_EGLSurface == EGL_NO_SURFACE) {
-    fprintf(stderr, "eglCreateWindowSurface failed with error: 0x%x\n", eglGetError());
+    fprintf(stderr, "eglCreateWindowSurface failed with error: 0x%x\n",
+            eglGetError());
     return false;
   }
 
@@ -322,17 +314,16 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
     return false;
   }
 
-
   const char *is_background = getenv("ELECTRICSHEEP_BACKGROUND");
 
   if (is_background) {
     m_Background = true;
   }
 
-
   if (!m_Background) { // normal window
     glViewport(0, 0, _width, _height);
-    if (m_DecorationManager) { // compositor knows xdg-decoration, use xdg-shell and server side decor
+    if (m_DecorationManager) { // compositor knows xdg-decoration, use xdg-shell
+                               // and server side decor
       using_csd = false;
       fprintf(stderr, "Using xdg-shell and server side decor\n");
       m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
@@ -343,13 +334,15 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
       assert(m_XdgToplevel);
       xdg_toplevel_add_listener(m_XdgToplevel, &xdg_toplevel_listener, this);
       fprintf(stderr, "Created toplevel\n");
-      m_Decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(m_DecorationManager, m_XdgToplevel);
-      zxdg_toplevel_decoration_v1_set_mode(m_Decoration,
-                                           ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+      m_Decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
+          m_DecorationManager, m_XdgToplevel);
+      zxdg_toplevel_decoration_v1_set_mode(
+          m_Decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
       xdg_surface_set_window_geometry(m_XdgSurface, 0, 0, _width, _height);
     }
 #ifdef HAVE_LIBDECOR
-    else { // compositor does not know xdg-decoration, use libdecor and client side decor
+    else { // compositor does not know xdg-decoration, use libdecor and client
+           // side decor
       fprintf(stderr, "Using libdecor\n");
       using_csd = true;
       configured = false;
@@ -368,7 +361,8 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
 #else
     else {
       fprintf(stderr, "Compositor does not support xdg-decoration\n");
-      fprintf(stderr, "and electricsheep is compiled without libdecor support.\n");
+      fprintf(stderr,
+              "and electricsheep is compiled without libdecor support.\n");
       fprintf(stderr, "Still trying basic output without title bar.\n");
       m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
       assert(m_XdgSurface);
@@ -403,7 +397,6 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   wl_surface_commit(m_Surface);
   wl_display_roundtrip(m_pDisplay);
 
-
   setFullScreen(_bFullscreen);
 
   free(configs);
@@ -413,16 +406,13 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
 
 void CWaylandGL::Title(const std::string &_title) {
   // Set window title
-  if (!m_Background)
-  {
-    if (!using_csd)
-    {
+  if (!m_Background) {
+    if (!using_csd) {
       xdg_toplevel_set_title(m_XdgToplevel, _title.c_str());
       xdg_toplevel_set_app_id(m_XdgToplevel, _title.c_str());
     }
 #ifdef HAVE_LIBDECOR
-    else
-    {
+    else {
       libdecor_frame_set_title(frame, _title.c_str());
       libdecor_frame_set_app_id(frame, _title.c_str());
     }
@@ -434,27 +424,25 @@ void CWaylandGL::setFullScreen(bool enabled) {
   // Fullscreen setup
   fprintf(stderr, "Setting fullscreen: %d\n", enabled);
   if (!m_Background) {
-      if (enabled) {
+    if (enabled) {
 #ifdef HAVE_LIBDECOR
-        if (using_csd)
-          libdecor_frame_set_fullscreen(frame, m_Output);
-        else
+      if (using_csd)
+        libdecor_frame_set_fullscreen(frame, m_Output);
+      else
 #endif
-          xdg_toplevel_set_fullscreen(m_XdgToplevel, m_Output);
-      } else {
+        xdg_toplevel_set_fullscreen(m_XdgToplevel, m_Output);
+    } else {
 #ifdef HAVE_LIBDECOR
-        if (using_csd)
-          libdecor_frame_unset_fullscreen(frame);
-        else
+      if (using_csd)
+        libdecor_frame_unset_fullscreen(frame);
+      else
 #endif
-          xdg_toplevel_unset_fullscreen(m_XdgToplevel);
-      }
+        xdg_toplevel_unset_fullscreen(m_XdgToplevel);
+    }
   }
 }
 
-void CWaylandGL::Update() {
-  checkClientMessages();
-}
+void CWaylandGL::Update() { checkClientMessages(); }
 
 void CWaylandGL::SwapBuffers() {
 #ifdef HAVE_LIBDECOR
@@ -471,9 +459,9 @@ void CWaylandGL::SwapBuffers() {
   }
 }
 
-  void CWaylandGL::checkClientMessages() {
-    // Handle Wayland events
-  }
+void CWaylandGL::checkClientMessages() {
+  // Handle Wayland events
+}
 
 } // namespace DisplayOutput
 
