@@ -346,6 +346,18 @@ if test "$IS_LINUX_GNU" = "true"; then
   AC_SUBST(WAYLAND_LIBS)
 fi
 
+AC_ARG_WITH([libdecor],
+    [AS_HELP_STRING([--with-libdecor],
+    [Use libdecor for client side window decoration if compositor does not support server side decorations])],
+    [use_libdecor=$withval], [use_libdecor=no])
+
+if test "x$use_libdecor" = "xyes"; then
+    PKG_CHECK_MODULES([LIBDECOR], [libdecor-0])
+    AC_SUBST([LIBDECOR_CFLAGS])
+    AC_SUBST([LIBDECOR_LIBS])
+    AC_DEFINE([HAVE_LIBDECOR], [1], [Define if libdecor is available])
+fi
+
 AC_OUTPUT([ 
 Makefile
 Client/Makefile

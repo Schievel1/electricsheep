@@ -39,6 +39,7 @@ Hud.cpp \
 ../DisplayOutput/OpenGL/egl.cpp \
 ../DisplayOutput/OpenGL/xdg-shell.c \
 ../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-client-protocol.c \
+../DisplayOutput/OpenGL/xdg-decoration.c \
 ../DisplayOutput/OpenGL/ShaderGL.cpp \
 ../DisplayOutput/OpenGL/TextureFlatGL.cpp \
 ../DisplayOutput/OpenGL/wgl.cpp \
@@ -80,10 +81,9 @@ Hud.cpp \
 
 electricsheep_LDADD = -lboost_system -lboost_thread -lboost_filesystem -lglut \
 	$(AVCODEC_LIBS) $(AVFORMAT_LIBS) $(SWSCALE_LIBS) $(AVUTIL_LIBS) $(LUA_LIBS) $(GLU_LIBS) $(GLEE_LIBS) $(BOOST_LDADD) \
-	$(CURL_LIBS) $(PNG_LIBS) $(XRENDER_LIBS) $(LIBGTOP_LIBS) $(XRENDER_LIBS) $(WAYLAND_LIBS)
+	$(CURL_LIBS) $(PNG_LIBS) $(XRENDER_LIBS) $(LIBGTOP_LIBS) $(XRENDER_LIBS) $(WAYLAND_LIBS) $(LIBDECOR_LIBS)
 
 AM_CXXFLAGS = $(linux_CFLAGS) $(AVCODEC_CFLAGS) $(AVFORMAT_CFLAGS) $(SWSCALE_CFLAGS) $(AVUTIL_CFLAGS) $(LIBGTOP_CFLAGS) \
-	$(LUA_CFLAGS) $(GLU_CFLAGS) $(GLEE_CFLAGS) $(CURL_CFLAGS) $(PNG_CFLAGS) $(LUA_CFLAGS) $(XRENDER_CFLAGS) $(WAYLAND_CFLAGS) $(BOOST_CXXFLAGS) -lrt -lz -lGL \
+	$(LUA_CFLAGS) $(GLU_CFLAGS) $(GLEE_CFLAGS) $(CURL_CFLAGS) $(PNG_CFLAGS) $(LUA_CFLAGS) $(XRENDER_CFLAGS) $(WAYLAND_CFLAGS) \
+	$(LIBDECOR_CFLAGS) $(BOOST_CXXFLAGS) -lrt -lz -lGL \
 	-D__STDC_CONSTANT_MACROS -Wno-write-strings $(AVC_DEFS)
-
-
