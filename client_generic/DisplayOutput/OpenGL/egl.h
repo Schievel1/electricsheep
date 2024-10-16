@@ -2,10 +2,11 @@
 #define EGL_VIDEO_OUTPUT_H
 
 #ifndef WIN32
+#ifdef HAVE_WAYLAND
 
-#ifdef _DisplayGL_H_
-#error "DisplayGL.h included before egl.h!"
-#endif
+// #ifdef _DisplayGL_H_
+// #error "DisplayGL.h included before egl.h!"
+// #endif
 
 #include <wayland-client.h>
 #include <wayland-egl.h>
@@ -96,9 +97,10 @@ class CWaylandGL : public CDisplayOutput
 
 };
 
-typedef	CWaylandGL	CDisplayGL;
+// typedef	CWaylandGL	CDisplayGL;
 
 }
 
+#endif
 #endif
 #endif

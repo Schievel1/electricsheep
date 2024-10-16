@@ -221,7 +221,14 @@ bool CPlayer::AddDisplay( uint32 screen )
 #else // !WIN32
 
 	g_Log->Info( "Attempting to open %s...", CDisplayGL::Description() );
-	spDisplay = new CDisplayGL();
+#ifdef HAVE_WAYLAND
+	if (getenv("WAYLAND_DISPLAY"))
+		spDisplay = new CWaylandGL();
+	else
+#endif
+		spDisplay = new CDisplayGL();
+
+
 	if( spDisplay == NULL )
 		return false;
 	

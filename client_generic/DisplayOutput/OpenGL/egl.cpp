@@ -34,7 +34,7 @@ namespace DisplayOutput {
 
 	  waylandGL->content_width = width;
 	  waylandGL->content_height = height;
-    fprintf(stderr, "Configuring frame: %dx%d\n", width, height);
+
 	  wl_egl_window_resize(waylandGL->m_EGLWindow,
 			                   waylandGL->content_width, waylandGL->content_height,
 			                   0, 0);
@@ -209,7 +209,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
                             const bool _bFullscreen) {
   m_Width = m_WidthFS = _width;
   m_Height = m_HeightFS =  _height;
-  fprintf(stderr, "Initializing WaylandGL\n");
+  fprintf(stderr, "CWaylandGL\n");
 
   // Connect to the Wayland display
   m_pDisplay = wl_display_connect(NULL);
@@ -431,13 +431,22 @@ void CWaylandGL::Title(const std::string &_title) {
 void CWaylandGL::setFullScreen(bool enabled) {
   // Fullscreen setup
   fprintf(stderr, "Setting fullscreen: %d\n", enabled);
-  if (!m_Background && !using_csd) {
-    if (enabled) {
-    xdg_toplevel_set_fullscreen(m_XdgToplevel, m_Output);
-    } else {
-      xdg_toplevel_unset_fullscreen(m_XdgToplevel);
-    }
-  }
+  if (!m_Background) {
+      if (enabled) {
+#ifdef HAVE_LIBDECOR
+        if (using_csd)
+          libdecor_frame_set_fullscreen(frame, m_Output);
+        else
+#endif
+          xdg_toplevel_set_fullscreen(m_XdgToplevel, m_Output);
+      } else {
+#ifdef HAVE_LIBDECOR
+        if (using_csd)
+          libdecor_frame_unset_fullscreen(frame)
+        else
+#endif
+          xdg_toplevel_unset_fullscreen(m_XdgToplevel);
+      }
 }
 
 void CWaylandGL::Update() {

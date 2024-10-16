@@ -37,9 +37,6 @@ Hud.cpp \
 ../DisplayOutput/OpenGL/RendererGL.cpp \
 ../DisplayOutput/OpenGL/glx.cpp \
 ../DisplayOutput/OpenGL/egl.cpp \
-../DisplayOutput/OpenGL/xdg-shell.c \
-../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-client-protocol.c \
-../DisplayOutput/OpenGL/xdg-decoration.c \
 ../DisplayOutput/OpenGL/ShaderGL.cpp \
 ../DisplayOutput/OpenGL/TextureFlatGL.cpp \
 ../DisplayOutput/OpenGL/wgl.cpp \
@@ -77,7 +74,12 @@ Hud.cpp \
 ../Common/Exception.cpp \
 ../Common/md5.c
 
-
+if WITH_WAYLAND
+electricsheep_SOURCES += \
+../DisplayOutput/OpenGL/xdg-shell.c \
+../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-client-protocol.c \
+../DisplayOutput/OpenGL/xdg-decoration.c
+endif
 
 electricsheep_LDADD = -lboost_system -lboost_thread -lboost_filesystem -lglut \
 	$(AVCODEC_LIBS) $(AVFORMAT_LIBS) $(SWSCALE_LIBS) $(AVUTIL_LIBS) $(LUA_LIBS) $(GLU_LIBS) $(GLEE_LIBS) $(BOOST_LDADD) \

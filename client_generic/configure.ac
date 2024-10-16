@@ -332,8 +332,14 @@ AC_CHECK_LIB([rt],[clock_gettime],,
 	[AC_MSG_ERROR([you must install librt to compile electricsheep.])
 ])
 
-if test "$IS_LINUX_GNU" = "true"; then
-  dnl Check for Wayland and EGL
+dnl Add flag wayland
+AC_ARG_WITH([wayland],
+            [AS_HELP_STRING([--with-wayland], [Build with Wayland support])],
+            [with_wayland=$withval], [with_wayland=no])
+AM_CONDITIONAL([WITH_WAYLAND], [test "$with_wayland" = "yes"])
+
+dnl Check for Wayland and EGL
+if test "$with_wayland" = "yes"; then
   PKG_CHECK_MODULES([WAYLAND], [wayland-client >= 1.0 wayland-egl >= 1.0 egl >= 1.0], [
     AC_DEFINE([HAVE_WAYLAND], [1], [Define if Wayland and EGL are available])
     WAYLAND_CFLAGS="$WAYLAND_CFLAGS"
@@ -346,11 +352,13 @@ if test "$IS_LINUX_GNU" = "true"; then
   AC_SUBST(WAYLAND_LIBS)
 fi
 
+dnl Add flag libdecor
 AC_ARG_WITH([libdecor],
     [AS_HELP_STRING([--with-libdecor],
     [Use libdecor for client side window decoration if compositor does not support server side decorations])],
     [use_libdecor=$withval], [use_libdecor=no])
 
+dnl Check for libdecor
 if test "x$use_libdecor" = "xyes"; then
     PKG_CHECK_MODULES([LIBDECOR], [libdecor-0])
     AC_SUBST([LIBDECOR_CFLAGS])

@@ -10,10 +10,9 @@
 #ifdef MAC
 	#include	"mgl.h"
 #else
+	#include	"glx.h"
 #ifdef HAVE_WAYLAND
 	#include	"egl.h"
-#else
-	#include	"glx.h"
 #endif
 #endif
 #endif

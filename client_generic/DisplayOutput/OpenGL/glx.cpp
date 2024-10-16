@@ -1,5 +1,4 @@
 #ifndef	WIN32
-#ifndef     HAVE_WAYLAND
 
 #include <string>
 #include <iostream>
@@ -677,5 +676,4 @@ void CUnixGL::checkClientMessages()
 
 };
 
-#endif
 #endif
