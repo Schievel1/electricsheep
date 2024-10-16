@@ -163,6 +163,7 @@ const struct xdg_surface_listener xdg_surface_listener = {
 void zwlr_layer_surface_configure_handler(
     void *data, struct zwlr_layer_surface_v1 *zwlr_layer_surface_v1,
     uint32_t serial, uint32_t width, uint32_t height) {
+  glViewport(0, 0, width, height);
   zwlr_layer_surface_v1_ack_configure(zwlr_layer_surface_v1, serial);
 }
 
@@ -330,6 +331,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
 
 
   if (!m_Background) { // normal window
+    glViewport(0, 0, _width, _height);
     if (m_DecorationManager) { // compositor knows xdg-decoration, use xdg-shell and server side decor
       using_csd = false;
       fprintf(stderr, "Using xdg-shell and server side decor\n");
@@ -397,10 +399,10 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
     zwlr_layer_surface_v1_add_listener(layer_surface, &layer_surface_listener,
                                        m_Output);
   }
+
   wl_surface_commit(m_Surface);
   wl_display_roundtrip(m_pDisplay);
 
-  glViewport(0, 0, _width, _height);
 
   setFullScreen(_bFullscreen);
 
