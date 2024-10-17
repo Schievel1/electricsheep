@@ -55,6 +55,10 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   m_Height = m_HeightFS = _height;
   fprintf(stderr, "CWaylandGL()\n");
 
+  // create xkb context
+  m_XkbContext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  assert(m_XkbContext);
+
   // Connect to the Wayland display
   m_pDisplay = wl_display_connect(NULL);
   assert(m_pDisplay);
@@ -285,6 +289,7 @@ void CWaylandGL::setFullScreen(bool enabled) {
       else
 #endif
         xdg_toplevel_set_fullscreen(m_XdgToplevel, m_Output);
+      m_FullScreen = true;
     } else {
 #ifdef HAVE_LIBDECOR
       if (using_csd)
@@ -292,11 +297,13 @@ void CWaylandGL::setFullScreen(bool enabled) {
       else
 #endif
         xdg_toplevel_unset_fullscreen(m_XdgToplevel);
+      m_FullScreen = false;
     }
   }
 }
 
-void CWaylandGL::Update() { checkClientMessages(); }
+void CWaylandGL::Update() { // nothing to do
+}
 
 void CWaylandGL::SwapBuffers() {
 #ifdef HAVE_LIBDECOR
@@ -313,8 +320,63 @@ void CWaylandGL::SwapBuffers() {
   }
 }
 
-void CWaylandGL::checkClientMessages() {
-  // Handle Wayland events
+void CWaylandGL::handleKeyboard(xkb_keysym_t keysym, uint32_t codepoint,
+                                enum wl_keyboard_key_state key_state) {
+
+  fprintf(stderr, "Key event: %d\n", keysym);
+  fprintf(stderr, "Codepoint: %d\n", codepoint);
+  fprintf(stderr, "Pushed/Released: %d\n", key_state);
+  CKeyEvent *spEvent = new CKeyEvent();
+
+  if (key_state == WL_KEYBOARD_KEY_STATE_PRESSED)
+    spEvent->m_bPressed = true;
+  else if (key_state == WL_KEYBOARD_KEY_STATE_RELEASED)
+    spEvent->m_bPressed = false;
+
+  switch (keysym) {
+  case XKB_KEY_F1:
+    spEvent->m_Code = CKeyEvent::KEY_F1;
+    break;
+  case XKB_KEY_F2:
+    spEvent->m_Code = CKeyEvent::KEY_F2;
+    break;
+  case XKB_KEY_F3:
+    spEvent->m_Code = CKeyEvent::KEY_F3;
+    break;
+  case XKB_KEY_F4:
+    spEvent->m_Code = CKeyEvent::KEY_F4;
+    break;
+  case XKB_KEY_F8:
+    spEvent->m_Code = CKeyEvent::KEY_F8;
+    break;
+  case XKB_KEY_f:
+    spEvent->m_Code = CKeyEvent::KEY_F;
+    break;
+  case XKB_KEY_s:
+    spEvent->m_Code = CKeyEvent::KEY_s;
+    break;
+  case XKB_KEY_space:
+    spEvent->m_Code = CKeyEvent::KEY_SPACE;
+    break;
+  case XKB_KEY_Left:
+    spEvent->m_Code = CKeyEvent::KEY_LEFT;
+    break;
+  case XKB_KEY_Right:
+    spEvent->m_Code = CKeyEvent::KEY_RIGHT;
+    break;
+  case XKB_KEY_Up:
+    spEvent->m_Code = CKeyEvent::KEY_UP;
+    break;
+  case XKB_KEY_Down:
+    spEvent->m_Code = CKeyEvent::KEY_DOWN;
+    break;
+  case XKB_KEY_Escape:
+    spEvent->m_Code = CKeyEvent::KEY_Esc;
+    break;
+  }
+
+  spCEvent e = spEvent;
+  m_EventQueue.push(e);
 }
 
 } // namespace DisplayOutput

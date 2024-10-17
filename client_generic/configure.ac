@@ -362,6 +362,11 @@ if test "$with_wayland" = "yes"; then
   AC_SUBST(WAYLAND_CFLAGS)
   AC_SUBST(WAYLAND_LIBS)
 
+  dnl check for libxkbcommon
+  PKG_CHECK_MODULES([XKBCOMMON], [xkbcommon >= 0.5.0])
+  AC_SUBST(XKBCOMMON_CFLAGS)
+  AC_SUBST(XKBCOMMON_LIBS)
+
   dnl Add flag libdecor
   AC_ARG_WITH([libdecor],
     [AS_HELP_STRING([--with-libdecor],

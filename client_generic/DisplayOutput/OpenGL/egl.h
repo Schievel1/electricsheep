@@ -28,6 +28,9 @@
 #include <libdecor.h>
 #endif
 
+#include <sys/mman.h>
+#include <xkbcommon/xkbcommon.h>
+
 namespace DisplayOutput {
 
 class CWaylandGL : public CDisplayOutput {
@@ -38,6 +41,15 @@ class CWaylandGL : public CDisplayOutput {
   wl_compositor *m_Compositor = nullptr;
   wl_surface *m_Surface = nullptr;
   wl_output *m_Output = nullptr;
+  // seat
+  wl_seat *m_Seat = nullptr;
+  wl_pointer *pointer;
+  wl_keyboard *keyboard;
+  bool caps_lock = false;
+  bool control = false;
+  xkb_state *m_XkbState;
+  xkb_context *m_XkbContext;
+  xkb_keymap *m_XkbKeymap;
   // xdg
   xdg_wm_base *m_XdgWmBase = nullptr;
   xdg_surface *m_XdgSurface = nullptr;
@@ -61,17 +73,17 @@ class CWaylandGL : public CDisplayOutput {
   int m_LibdecorContentHeight;
   int m_LibdecorFloatingWidth;
   int m_LibdecorFloatingHeight;
-  bool open = false;
 #endif
 
-  bool m_FullScreen;
+  bool m_FullScreen = false;
   bool m_Background = false;
 
   uint32 m_WidthFS;
   uint32 m_HeightFS;
 
   void setFullScreen(bool enabled);
-  void checkClientMessages();
+  void handleKeyboard(xkb_keysym_t keysym, uint32_t codepoint,
+                      enum wl_keyboard_key_state key_state);
 
 // wayland handling stuff starts here
 #ifdef HAVE_LIBDECOR
@@ -193,6 +205,184 @@ class CWaylandGL : public CDisplayOutput {
   const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
       .configure = zwlr_layer_surface_configure_handler};
 
+  static void keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
+                              uint32_t format, int32_t fd, uint32_t size) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+      close(fd);
+      fprintf(stderr, "Unsupported keymap format\n");
+      return;
+    }
+    char *map_shm = (char *)mmap(NULL, size - 1, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (map_shm == MAP_FAILED) {
+      close(fd);
+      fprintf(stderr, "Unable to initialize keymap shm\n");
+      return;
+    }
+
+    struct xkb_keymap *keymap = xkb_keymap_new_from_buffer(
+        waylandGL->m_XkbContext, map_shm, size - 1, XKB_KEYMAP_FORMAT_TEXT_V1,
+        XKB_KEYMAP_COMPILE_NO_FLAGS);
+    munmap(map_shm, size - 1);
+    close(fd);
+    assert(keymap);
+    struct xkb_state *xkb_state = xkb_state_new(keymap);
+    assert(xkb_state);
+    xkb_keymap_unref(waylandGL->m_XkbKeymap);
+    xkb_state_unref(waylandGL->m_XkbState);
+    waylandGL->m_XkbKeymap = keymap;
+    waylandGL->m_XkbState = xkb_state;
+  }
+
+  static void keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
+                             uint32_t serial, struct wl_surface *surface,
+                             struct wl_array *keys) {}
+
+  static void keyboard_leave(void *data, struct wl_keyboard *wl_keyboard,
+                             uint32_t serial, struct wl_surface *surface) {}
+
+  static void keyboard_key(void *data, struct wl_keyboard *wl_keyboard,
+                           uint32_t serial, uint32_t time, uint32_t key,
+                           uint32_t _key_state) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    enum wl_keyboard_key_state key_state = (wl_keyboard_key_state)_key_state;
+    xkb_keysym_t sym =
+        xkb_state_key_get_one_sym(waylandGL->m_XkbState, key + 8);
+    uint32_t keycode = key_state == WL_KEYBOARD_KEY_STATE_PRESSED ? key + 8 : 0;
+    uint32_t codepoint =
+        xkb_state_key_get_utf32(waylandGL->m_XkbState, keycode);
+    waylandGL->handleKeyboard(sym, codepoint, key_state);
+  }
+
+  static void keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard,
+                                 uint32_t serial, uint32_t mods_depressed,
+                                 uint32_t mods_latched, uint32_t mods_locked,
+                                 uint32_t group) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    if (waylandGL->m_XkbState == NULL) {
+      return;
+    }
+
+    int layout_same = xkb_state_layout_index_is_active(
+        waylandGL->m_XkbState, group, XKB_STATE_LAYOUT_EFFECTIVE);
+    // if (!layout_same) {
+    // damage_state(state);
+    // }
+    xkb_state_update_mask(waylandGL->m_XkbState, mods_depressed, mods_latched,
+                          mods_locked, 0, 0, group);
+    int caps_lock = xkb_state_mod_name_is_active(
+        waylandGL->m_XkbState, XKB_MOD_NAME_CAPS, XKB_STATE_MODS_LOCKED);
+    if (caps_lock != waylandGL->caps_lock) {
+      waylandGL->caps_lock = caps_lock;
+    }
+    waylandGL->control = xkb_state_mod_name_is_active(
+        waylandGL->m_XkbState, XKB_MOD_NAME_CTRL,
+        (xkb_state_component)(XKB_STATE_MODS_DEPRESSED |
+                              XKB_STATE_MODS_LATCHED));
+  }
+
+  static void keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
+                                   int32_t rate, int32_t delay) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    // if (rate <= 0) {
+    //   waylandGL->repeat_period_ms = -1;
+    // } else {
+    //   // Keys per second -> milliseconds between keys
+    //   waylandGL->repeat_period_ms = 1000 / rate;
+    // }
+    // waylandGL->repeat_delay_ms = delay;
+  }
+  const struct wl_keyboard_listener keyboard_listener = {
+      .keymap = keyboard_keymap,
+      .enter = keyboard_enter,
+      .leave = keyboard_leave,
+      .key = keyboard_key,
+      .modifiers = keyboard_modifiers,
+      .repeat_info = keyboard_repeat_info,
+  };
+
+  static void wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
+                               uint32_t serial, struct wl_surface *surface,
+                               wl_fixed_t surface_x, wl_fixed_t surface_y) {
+    wl_pointer_set_cursor(wl_pointer, serial, NULL, 0, 0);
+  }
+
+  static void wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
+                               uint32_t serial, struct wl_surface *surface) {
+    // Who cares
+  }
+
+  static void wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
+                                uint32_t time, wl_fixed_t surface_x,
+                                wl_fixed_t surface_y) {}
+
+  static void wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
+                                uint32_t serial, uint32_t time, uint32_t button,
+                                uint32_t state) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+      waylandGL->setFullScreen((waylandGL->m_FullScreen) ? false : true);
+    }
+  }
+
+  static void wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
+                              uint32_t time, uint32_t axis, wl_fixed_t value) {}
+
+  static void wl_pointer_frame(void *data, struct wl_pointer *wl_pointer) {}
+
+  static void wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
+                                     uint32_t axis_source) {}
+
+  static void wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
+                                   uint32_t time, uint32_t axis) {}
+
+  static void wl_pointer_axis_discrete(void *data,
+                                       struct wl_pointer *wl_pointer,
+                                       uint32_t axis, int32_t discrete) {}
+  const struct wl_pointer_listener pointer_listener = {
+      .enter = wl_pointer_enter,
+      .leave = wl_pointer_leave,
+      .motion = wl_pointer_motion,
+      .button = wl_pointer_button,
+      .axis = wl_pointer_axis,
+      .frame = wl_pointer_frame,
+      .axis_source = wl_pointer_axis_source,
+      .axis_stop = wl_pointer_axis_stop,
+      .axis_discrete = wl_pointer_axis_discrete,
+  };
+
+  static void seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
+                                       uint32_t caps) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    if (waylandGL->pointer) {
+      wl_pointer_release(waylandGL->pointer);
+      waylandGL->pointer = NULL;
+    }
+    if (waylandGL->keyboard) {
+      wl_keyboard_release(waylandGL->keyboard);
+      waylandGL->keyboard = NULL;
+    }
+    if ((caps & WL_SEAT_CAPABILITY_POINTER)) {
+      waylandGL->pointer = wl_seat_get_pointer(wl_seat);
+      wl_pointer_add_listener(waylandGL->pointer, &waylandGL->pointer_listener,
+                              waylandGL);
+    }
+    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD)) {
+      waylandGL->keyboard = wl_seat_get_keyboard(wl_seat);
+      wl_keyboard_add_listener(waylandGL->keyboard,
+                               &waylandGL->keyboard_listener, waylandGL);
+    }
+  }
+
+  static void seat_handle_name(void *data, struct wl_seat *wl_seat,
+                               const char *name) {
+    // Who cares
+  }
+  const struct wl_seat_listener seat_listener = {
+      .capabilities = seat_handle_capabilities,
+      .name = seat_handle_name,
+  };
+
   static void registry_handle_global(void *data, struct wl_registry *registry,
                                      uint32_t name, const char *interface,
                                      uint32_t version) {
@@ -213,6 +403,11 @@ class CWaylandGL : public CDisplayOutput {
       waylandGL->m_WlrLayerShell =
           (struct zwlr_layer_shell_v1 *)wl_registry_bind(
               registry, name, &zwlr_layer_shell_v1_interface, 1);
+    } else if (strcmp(interface, wl_seat_interface.name) == 0) {
+      waylandGL->m_Seat = (struct wl_seat *)wl_registry_bind(
+          registry, name, &wl_seat_interface, 4);
+      wl_seat_add_listener(waylandGL->m_Seat, &waylandGL->seat_listener,
+                           waylandGL);
     } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) ==
                0) {
       waylandGL->m_DecorationManager =
