@@ -320,9 +320,15 @@ class CWaylandGL : public CDisplayOutput {
                                 uint32_t serial, uint32_t time, uint32_t button,
                                 uint32_t state) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+    static uint32_t last_time = 0;
+
+    // double click toggles fullscreen
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
-      waylandGL->setFullScreen((waylandGL->m_FullScreen) ? false : true);
+      if (time - last_time < 500) {
+        waylandGL->setFullScreen((waylandGL->m_FullScreen) ? false : true);
+      }
     }
+    last_time = time;
   }
 
   static void wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
