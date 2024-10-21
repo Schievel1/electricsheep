@@ -43,13 +43,13 @@ class CWaylandGL : public CDisplayOutput {
   wl_output *m_Output = nullptr;
   // seat
   wl_seat *m_Seat = nullptr;
-  wl_pointer *pointer;
-  wl_keyboard *keyboard;
+  wl_pointer *pointer = nullptr;
+  wl_keyboard *keyboard = nullptr;
   bool caps_lock = false;
   bool control = false;
-  xkb_state *m_XkbState;
-  xkb_context *m_XkbContext;
-  xkb_keymap *m_XkbKeymap;
+  xkb_state *m_XkbState = nullptr;
+  xkb_context *m_XkbContext = nullptr;
+  xkb_keymap *m_XkbKeymap = nullptr;
   // xdg
   xdg_wm_base *m_XdgWmBase = nullptr;
   xdg_surface *m_XdgSurface = nullptr;
@@ -67,19 +67,19 @@ class CWaylandGL : public CDisplayOutput {
   EGLConfig m_EGLConfig = nullptr;
 
 #ifdef HAVE_LIBDECOR
-  libdecor *m_LibdecorContext;
-  libdecor_frame *m_LibdecorFrame;
-  int m_LibdecorContentWidth;
-  int m_LibdecorContentHeight;
-  int m_LibdecorFloatingWidth;
-  int m_LibdecorFloatingHeight;
+  libdecor *m_LibdecorContext = nullptr;
+  libdecor_frame *m_LibdecorFrame = nullptr;
+  int m_LibdecorContentWidth = 0;
+  int m_LibdecorContentHeight = 0;
+  int m_LibdecorFloatingWidth = 0;
+  int m_LibdecorFloatingHeight = 0;
 #endif
 
   bool m_FullScreen = false;
   bool m_Background = false;
 
-  uint32 m_WidthFS;
-  uint32 m_HeightFS;
+  uint32 m_WidthFS = 0;
+  uint32 m_HeightFS = 0;
 
   void setFullScreen(bool enabled);
   void handleKeyboard(xkb_keysym_t keysym, uint32_t codepoint,
@@ -171,7 +171,11 @@ class CWaylandGL : public CDisplayOutput {
     }
     waylandGL->m_WidthFS = width;
     waylandGL->m_HeightFS = height;
-    glViewport(0, 0, width, height);
+    wl_egl_window_resize(waylandGL->m_EGLWindow,
+                         waylandGL->m_WidthFS,
+                         waylandGL->m_HeightFS, 0, 0);
+    glViewport(0, 0, waylandGL->m_WidthFS,
+               waylandGL->m_HeightFS);
   }
 
   static void xdg_toplevel_close_handler(void *data,
@@ -321,10 +325,11 @@ class CWaylandGL : public CDisplayOutput {
                                 uint32_t state) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
     static uint32_t last_time = 0;
-
+    fprintf(stderr, "button");
     // double click toggles fullscreen
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
       if (time - last_time < 500) {
+        fprintf(stderr, "button2");
         waylandGL->setFullScreen((waylandGL->m_FullScreen) ? false : true);
       }
     }
@@ -362,11 +367,11 @@ class CWaylandGL : public CDisplayOutput {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
     if (waylandGL->pointer) {
       wl_pointer_release(waylandGL->pointer);
-      waylandGL->pointer = NULL;
+      waylandGL->pointer = nullptr;
     }
     if (waylandGL->keyboard) {
       wl_keyboard_release(waylandGL->keyboard);
-      waylandGL->keyboard = NULL;
+      waylandGL->keyboard = nullptr;
     }
     if ((caps & WL_SEAT_CAPABILITY_POINTER)) {
       waylandGL->pointer = wl_seat_get_pointer(wl_seat);
@@ -411,7 +416,7 @@ class CWaylandGL : public CDisplayOutput {
               registry, name, &zwlr_layer_shell_v1_interface, 1);
     } else if (strcmp(interface, wl_seat_interface.name) == 0) {
       waylandGL->m_Seat = (struct wl_seat *)wl_registry_bind(
-          registry, name, &wl_seat_interface, 4);
+          registry, name, &wl_seat_interface, 9);
       wl_seat_add_listener(waylandGL->m_Seat, &waylandGL->seat_listener,
                            waylandGL);
     } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) ==

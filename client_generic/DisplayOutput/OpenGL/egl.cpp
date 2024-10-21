@@ -178,7 +178,6 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   }
 
   if (!m_Background) { // normal window
-    glViewport(0, 0, _width, _height);
     if (m_DecorationManager) { // compositor knows xdg-decoration, use xdg-shell
                                // and server side decor
       using_csd = false;
@@ -255,7 +254,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   wl_surface_commit(m_Surface);
   wl_display_roundtrip(m_pDisplay);
 
-  setFullScreen(_bFullscreen);
+  // setFullScreen(_bFullscreen);
 
   free(configs);
 
@@ -303,6 +302,7 @@ void CWaylandGL::setFullScreen(bool enabled) {
 }
 
 void CWaylandGL::Update() { // nothing to do
+
 }
 
 void CWaylandGL::SwapBuffers() {
