@@ -44,6 +44,7 @@ class CWaylandGL : public CDisplayOutput {
   // seat
   wl_seat *m_Seat = nullptr;
   wl_pointer *pointer = nullptr;
+  wl_touch *touch = nullptr;
   wl_keyboard *keyboard = nullptr;
   bool caps_lock = false;
   bool control = false;
@@ -362,12 +363,39 @@ class CWaylandGL : public CDisplayOutput {
       .axis_discrete = wl_pointer_axis_discrete,
   };
 
+static void
+wl_touch_down(void *data, struct wl_touch *wl_touch, uint32_t serial,
+                                uint32_t time, struct wl_surface *surface, int32_t id,
+                                wl_fixed_t x, wl_fixed_t y) {
+  CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+  static uint32_t last_time = 0;
+  // double click toggles fullscreen
+  if (time - last_time < 500) {
+    waylandGL->setFullScreen((waylandGL->m_FullScreen) ? false : true);
+  }
+  last_time = time;
+}
+
+const struct wl_touch_listener touch_listener = {
+           .down = wl_touch_down,
+             .up = nullptr,
+             .motion = nullptr,
+             .frame = nullptr,
+             .cancel = nullptr,
+             .shape = nullptr,
+             .orientation = nullptr,
+};
+
   static void seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
                                        uint32_t caps) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
     if (waylandGL->pointer) {
       wl_pointer_release(waylandGL->pointer);
       waylandGL->pointer = nullptr;
+    }
+    if (waylandGL->touch) {
+      wl_touch_release(waylandGL->touch);
+      waylandGL->touch = nullptr;
     }
     if (waylandGL->keyboard) {
       wl_keyboard_release(waylandGL->keyboard);
@@ -382,6 +410,11 @@ class CWaylandGL : public CDisplayOutput {
       waylandGL->keyboard = wl_seat_get_keyboard(wl_seat);
       wl_keyboard_add_listener(waylandGL->keyboard,
                                &waylandGL->keyboard_listener, waylandGL);
+    }
+    if ((caps & WL_SEAT_CAPABILITY_TOUCH)) {
+      waylandGL->touch = wl_seat_get_touch(wl_seat);
+      wl_touch_add_listener(waylandGL->touch,
+                               &waylandGL->touch_listener, waylandGL);
     }
   }
 
