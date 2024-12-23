@@ -416,7 +416,7 @@ class CWaylandGL : public CDisplayOutput {
               registry, name, &zwlr_layer_shell_v1_interface, 1);
     } else if (strcmp(interface, wl_seat_interface.name) == 0) {
       waylandGL->m_Seat = (struct wl_seat *)wl_registry_bind(
-          registry, name, &wl_seat_interface, 9);
+          registry, name, &wl_seat_interface, 7);
       wl_seat_add_listener(waylandGL->m_Seat, &waylandGL->seat_listener,
                            waylandGL);
     } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) ==
