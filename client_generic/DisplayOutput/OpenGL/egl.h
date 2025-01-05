@@ -88,7 +88,7 @@ class CWaylandGL : public CDisplayOutput {
 
 // wayland handling stuff starts here
 #ifdef HAVE_LIBDECOR
-  static void frame_configure(struct libdecor_frame *frame,
+  static void libdecor_my_frame_configure(struct libdecor_frame *frame,
                               struct libdecor_configuration *configuration,
                               void *user_data) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
@@ -123,21 +123,21 @@ class CWaylandGL : public CDisplayOutput {
     waylandGL->configured = true;
   }
 
-  static void frame_close(struct libdecor_frame *frame, void *user_data) {
+  static void libdecor_my_frame_close(struct libdecor_frame *frame, void *user_data) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
 
     waylandGL->m_bClosed = true;
   }
 
-  static void frame_commit(struct libdecor_frame *frame, void *user_data) {
+  static void libdecor_my_frame_commit(struct libdecor_frame *frame, void *user_data) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(user_data);
     eglSwapBuffers(waylandGL->m_EGLDisplay, waylandGL->m_EGLSurface);
   }
 
   struct libdecor_frame_interface frame_interface = {
-      frame_configure,
-      frame_close,
-      frame_commit,
+      libdecor_my_frame_configure,
+      libdecor_my_frame_close,
+      libdecor_my_frame_commit,
   };
 
   static void libdecor_error(struct libdecor *context,
@@ -201,10 +201,16 @@ class CWaylandGL : public CDisplayOutput {
       .configure = xdg_surface_configure_handler};
 
   static void zwlr_layer_surface_configure_handler(
-      void *data, struct zwlr_layer_surface_v1 *zwlr_layer_surface_v1,
+      void *data, struct zwlr_layer_surface_v1 *wlr_surface,
       uint32_t serial, uint32_t width, uint32_t height) {
+    CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+        fprintf(stderr, "width: %d, height: %d\n", width, height);
     glViewport(0, 0, width, height);
-    zwlr_layer_surface_v1_ack_configure(zwlr_layer_surface_v1, serial);
+    assert(waylandGL->m_EGLWindow);
+    wl_egl_window_resize(waylandGL->m_EGLWindow, width, height, 0, 0);
+    assert(waylandGL->layer_surface);
+    zwlr_layer_surface_v1_ack_configure(waylandGL->layer_surface, serial);
+    waylandGL->configured = true;
     fprintf(stderr, "wlr_layer_surface configured\n");
   }
 
