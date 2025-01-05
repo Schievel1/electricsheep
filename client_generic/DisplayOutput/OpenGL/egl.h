@@ -4,9 +4,9 @@
 #ifndef WIN32
 #ifdef HAVE_WAYLAND
 
-// #ifdef _DisplayGL_H_
-// #error "DisplayGL.h included before egl.h!"
-// #endif
+#ifdef _DisplayGL_H_
+#error "DisplayGL.h included before egl.h!"
+#endif
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-decoration.h"
@@ -205,10 +205,12 @@ class CWaylandGL : public CDisplayOutput {
       uint32_t serial, uint32_t width, uint32_t height) {
     glViewport(0, 0, width, height);
     zwlr_layer_surface_v1_ack_configure(zwlr_layer_surface_v1, serial);
+    fprintf(stderr, "wlr_layer_surface configured\n");
   }
 
   const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
-      .configure = zwlr_layer_surface_configure_handler};
+      .configure = zwlr_layer_surface_configure_handler
+  };
 
   static void keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                               uint32_t format, int32_t fd, uint32_t size) {
@@ -484,7 +486,7 @@ public:
 player.cpp
 - If we have wayland and no X11, typedef CWaylandGL to CDisplayGL and egl.h gets
 included in DisplayGL.h
-- If we have X11 and no wayland, typedef CDisplayGL to CWaylandGL and glx.h gets
+- If we have X11 and no wayland, typedef CDisplayGL to CUnixGL and glx.h gets
 included in DisplayGL.h
 */
 typedef CWaylandGL CDisplayGL;

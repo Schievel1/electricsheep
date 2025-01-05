@@ -74,7 +74,6 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   wl_display_roundtrip(m_pDisplay);
 
   assert(m_Compositor);
-  assert(m_XdgWmBase);
 
   // Initialize EGL
   EGLint count, size, numConfigs;
@@ -176,12 +175,13 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   if (is_background) {
     m_Background = true;
   }
-
+  fprintf(stderr, "IS BACKGROUND: %d",m_Background);
   if (!m_Background) { // normal window
     if (m_DecorationManager) { // compositor knows xdg-decoration, use xdg-shell
                                // and server side decor
       using_csd = false;
       fprintf(stderr, "Using xdg-shell and server side decor\n");
+      assert(m_XdgWmBase);
       m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
       assert(m_XdgSurface);
       xdg_surface_add_listener(m_XdgSurface, &xdg_surface_listener, this);
@@ -221,6 +221,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
       fprintf(stderr,
               "and electricsheep is compiled without libdecor support.\n");
       fprintf(stderr, "Still trying basic output without title bar.\n");
+      assert(m_XdgWmBase);
       m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
       assert(m_XdgSurface);
       xdg_surface_add_listener(m_XdgSurface, &xdg_surface_listener, this);
@@ -240,15 +241,14 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
     layer_surface = zwlr_layer_shell_v1_get_layer_surface(
         m_WlrLayerShell, m_Surface, m_Output,
         ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND, "wallpaper");
-    zwlr_layer_surface_v1_set_size(layer_surface, 0, 0);
+    zwlr_layer_surface_v1_set_size(layer_surface, 600, 400);
     zwlr_layer_surface_v1_set_anchor(layer_surface,
-                                     ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-                                         ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-                                         ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT |
-                                         ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM);
+        ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT |
+        ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT);
     zwlr_layer_surface_v1_set_exclusive_zone(layer_surface, -1);
     zwlr_layer_surface_v1_add_listener(layer_surface, &layer_surface_listener,
                                        m_Output);
+    fprintf(stderr, "Created wlr-layer-shell\n");
   }
 
   wl_surface_commit(m_Surface);
