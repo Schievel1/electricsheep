@@ -1,9 +1,3 @@
-TODO for wayland
-[  ] proper handling of mouse
-[X] handling of touch (maybe double touch = toggle fullscreen) (DONE but untested because no device)
-[  ] setup wlr_layer_shell glviewport porperly
-[  ] wayland output handling (maybe select in settings, or external program should handle, like wscreensaver)
-
 # Table of Contents
 -Introduction
 -How to Use
