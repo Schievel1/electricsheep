@@ -211,6 +211,7 @@ class CWaylandGL : public CDisplayOutput {
     assert(waylandGL->layer_surface);
     zwlr_layer_surface_v1_ack_configure(waylandGL->layer_surface, serial);
     waylandGL->configured = true;
+    wl_surface_commit(waylandGL->m_Surface);
     fprintf(stderr, "wlr_layer_surface configured\n");
   }
 
