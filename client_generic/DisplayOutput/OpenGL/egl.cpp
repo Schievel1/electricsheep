@@ -7,7 +7,6 @@
 #include <assert.h>
 #include <iostream>
 #include <string>
-
 #include "Exception.h"
 #include "Log.h"
 #include "egl.h"
@@ -54,6 +53,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   m_Width = m_WidthFS = _width;
   m_Height = m_HeightFS = _height;
   fprintf(stderr, "CWaylandGL()\n");
+                              fprintf(stderr, "initial width, height: %d, %d\n", _width, _height);
 
   // create xkb context
   m_XkbContext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
@@ -61,6 +61,9 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
 
   // Connect to the Wayland display
   m_pDisplay = wl_display_connect(NULL);
+  display_fd = wl_display_get_fd(m_pDisplay);
+  disp_fd.events = POLLIN;
+  disp_fd.fd = display_fd;
   assert(m_pDisplay);
 
   // Create a Wayland registry
@@ -71,6 +74,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
 
   wl_registry_add_listener(registry, &registry_listener, this);
   // wl_display_dispatch(m_pDisplay);
+  wl_display_roundtrip(m_pDisplay);
   wl_display_roundtrip(m_pDisplay);
 
   assert(m_Compositor);
@@ -141,46 +145,29 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
   assert(m_Surface);
   fprintf(stderr, "Created surface\n");
 
-  m_EGLWindow = wl_egl_window_create(m_Surface, _width, _height);
-  if (!m_EGLWindow) {
-    fprintf(stderr, "wl_egl_window_create failed\n");
-    return false;
-  }
-
-  EGLint surfaceAttribs[] = {EGL_RENDER_BUFFER, EGL_BACK_BUFFER, EGL_NONE};
-  m_EGLSurface =
-      eglCreateWindowSurface(m_EGLDisplay, m_EGLConfig,
-                             (EGLNativeWindowType)m_EGLWindow, surfaceAttribs);
-  if (m_EGLSurface == EGL_NO_SURFACE) {
-    fprintf(stderr, "eglCreateWindowSurface failed with error: 0x%x\n",
-            eglGetError());
-    return false;
-  }
-
-  if (!eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, m_EGLContext)) {
-    fprintf(stderr, "eglMakeCurrent failed with error: 0x%x\n", eglGetError());
-    return false;
-  }
-
-  /* Ensure that buffer swaps for egl_surface are not synchronized
-   * to the compositor, as this would result in blocking and round-robin
-   * updates when there are multiple outputs */
-  if (!eglSwapInterval(m_EGLDisplay, 0)) {
-    fprintf(stderr, "Failed to set swap interval\n");
-    return false;
-  }
-
   const char *is_background = getenv("ELECTRICSHEEP_BACKGROUND");
+  const char *force_dec_man = getenv("ELECTRICSHEEP_FORCE_SSD");
+  const char *force_libdecor = getenv("ELECTRICSHEEP_FORCE_CSD");
+  const char *force_layer_shell = getenv("ELECTRICSHEEP_FORCE_LAYER_SHELL");
 
+#ifndef HAVE_LIBDECOR
+  if (force_libdecor) {
+    fprintf(stderr, "Can not force client side (libdecor) decorations when electricsheep is not compiled with libdecor");
+    return false;
+  }
+#endif
   if (is_background) {
     m_Background = true;
   }
+
   fprintf(stderr, "is background: %d\n",m_Background);
-  if (!m_Background) { // normal window
-    if (m_DecorationManager) { // compositor knows xdg-decoration, use xdg-shell
-                               // and server side decor
+  if (!m_Background && !force_layer_shell) { // normal window
+    if ((m_DecorationManager || force_dec_man) && !force_libdecor) { // compositor knows xdg-decoration, use xdg-shell
+      // and server side decor (or decoration manager was forced)
       using_csd = false;
+      configured = false;
       fprintf(stderr, "Using xdg-shell and server side decor\n");
+      createEGLWindow(_width, _height);
       assert(m_XdgWmBase);
       m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
       assert(m_XdgSurface);
@@ -202,6 +189,7 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
       fprintf(stderr, "Using libdecor\n");
       using_csd = true;
       configured = false;
+      createEGLWindow(_width, _height);
       m_LibdecorFloatingWidth = m_WidthFS;
       m_LibdecorFloatingHeight = m_HeightFS;
       m_LibdecorContext = libdecor_new(m_pDisplay, &libdecor_interface);
@@ -222,6 +210,9 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
               "and electricsheep is compiled without libdecor support.\n");
       fprintf(stderr, "Still trying basic output without title bar.\n");
       assert(m_XdgWmBase);
+      using_csd = false;
+      configured = false;
+      createEGLWindow(_width, _height);
       m_XdgSurface = xdg_wm_base_get_xdg_surface(m_XdgWmBase, m_Surface);
       assert(m_XdgSurface);
       xdg_surface_add_listener(m_XdgSurface, &xdg_surface_listener, this);
@@ -238,6 +229,8 @@ bool CWaylandGL::Initialize(const uint32 _width, const uint32 _height,
       fprintf(stderr, "Compositor does not support layer shell\n");
       return false;
     }
+    using_csd = false;
+    configured = false;
     layer_surface = zwlr_layer_shell_v1_get_layer_surface(
         m_WlrLayerShell, m_Surface, m_Output,
         ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND, "wallpaper");
@@ -302,7 +295,30 @@ void CWaylandGL::setFullScreen(bool enabled) {
 }
 
 void CWaylandGL::Update() { // nothing to do
+  if (poll(&disp_fd, 1, 0) == -1 && errno != EINTR) {
+    fprintf(stderr, "Poll error\n");
+    running = false;
+  }
+  if (disp_fd.revents & POLLIN) {
+    // handle inputs before hang-up message
+    if (wl_display_dispatch(m_pDisplay) == -1 && errno != EINTR) {
+      running = false;
+    }
+  }
+  if (disp_fd.revents & POLLHUP) {
+    // compositor has closed the connection
+    fprintf(stderr, "compositor has closed the connection\n");
+    running = false;
+  }
+  if (disp_fd.revents & POLLERR) {
+    // error condition
+    fprintf(stderr, "Display fd error condition\n");
+    running = false;
+  }
 
+  if (!running) {
+    exit(EXIT_SUCCESS);
+  }
 }
 
 void CWaylandGL::SwapBuffers() {
@@ -319,6 +335,38 @@ void CWaylandGL::SwapBuffers() {
     }
   }
 }
+
+bool CWaylandGL::createEGLWindow(const uint32 _width, const uint32 _height) {
+    m_EGLWindow = wl_egl_window_create(m_Surface, _width, _height);
+    if (!m_EGLWindow) {
+      fprintf(stderr, "wl_egl_window_create failed\n");
+      return false;
+    }
+
+    EGLint surfaceAttribs[] = {EGL_RENDER_BUFFER, EGL_BACK_BUFFER, EGL_NONE};
+    m_EGLSurface =
+      eglCreateWindowSurface(m_EGLDisplay, m_EGLConfig,
+                             (EGLNativeWindowType)m_EGLWindow, surfaceAttribs);
+    if (m_EGLSurface == EGL_NO_SURFACE) {
+      fprintf(stderr, "eglCreateWindowSurface failed with error: 0x%x\n",
+              eglGetError());
+      return false;
+    }
+
+    if (!eglMakeCurrent(m_EGLDisplay, m_EGLSurface, m_EGLSurface, m_EGLContext)) {
+      fprintf(stderr, "eglMakeCurrent failed with error: 0x%x\n", eglGetError());
+      return false;
+    }
+
+    /* Ensure that buffer swaps for egl_surface are not synchronized
+     * to the compositor, as this would result in blocking and round-robin
+     * updates when there are multiple outputs */
+    if (!eglSwapInterval(m_EGLDisplay, 0)) {
+      fprintf(stderr, "Failed to set swap interval\n");
+      return false;
+    }
+    return true;
+  }
 
 void CWaylandGL::handleKeyboard(xkb_keysym_t keysym, uint32_t codepoint,
                                 enum wl_keyboard_key_state key_state) {

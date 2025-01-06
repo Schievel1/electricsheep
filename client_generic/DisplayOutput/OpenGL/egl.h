@@ -8,6 +8,7 @@
 #error "DisplayGL.h included before egl.h!"
 #endif
 
+#include <poll.h>
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-decoration.h"
 #include "xdg-shell.h"
@@ -34,8 +35,12 @@
 namespace DisplayOutput {
 
 class CWaylandGL : public CDisplayOutput {
+  bool running = true;
   bool using_csd = false;
   bool configured = false;
+  // display fd to react to changes of display
+  int display_fd = 0;
+  pollfd disp_fd;
   // wayland
   wl_display *m_pDisplay = nullptr;
   wl_compositor *m_Compositor = nullptr;
@@ -85,7 +90,7 @@ class CWaylandGL : public CDisplayOutput {
   void setFullScreen(bool enabled);
   void handleKeyboard(xkb_keysym_t keysym, uint32_t codepoint,
                       enum wl_keyboard_key_state key_state);
-
+  bool createEGLWindow(const uint32 _width, const uint32 _height);
 // wayland handling stuff starts here
 #ifdef HAVE_LIBDECOR
   static void libdecor_my_frame_configure(struct libdecor_frame *frame,
@@ -204,19 +209,38 @@ class CWaylandGL : public CDisplayOutput {
       void *data, struct zwlr_layer_surface_v1 *wlr_surface,
       uint32_t serial, uint32_t width, uint32_t height) {
     CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
-        fprintf(stderr, "width: %d, height: %d\n", width, height);
+    fprintf(stderr, "width: %d, height: %d\n", width, height);
     glViewport(0, 0, width, height);
-    assert(waylandGL->m_EGLWindow);
-    wl_egl_window_resize(waylandGL->m_EGLWindow, width, height, 0, 0);
-    assert(waylandGL->layer_surface);
+    // wlr_layer_shell requires late initialization because with
+    // wl_egl_window_resize() swaylock_plugin still detects the old
+    // size as surface size and refuses to display electricsheep
+    if (!waylandGL->createEGLWindow(width, height)) {
+      fprintf(stderr, "could not create egl window\n");
+    }
     zwlr_layer_surface_v1_ack_configure(waylandGL->layer_surface, serial);
     waylandGL->configured = true;
-    wl_surface_commit(waylandGL->m_Surface);
     fprintf(stderr, "wlr_layer_surface configured\n");
   }
 
+  static void zwlr_layer_surface_close_handler(
+      void *data, struct zwlr_layer_surface_v1 *wlr_surface) {
+        CWaylandGL *waylandGL = static_cast<CWaylandGL *>(data);
+        if (waylandGL->m_EGLWindow) {
+          eglDestroyContext(waylandGL->m_EGLDisplay, waylandGL->m_EGLContext);
+          eglDestroySurface(waylandGL->m_EGLDisplay, waylandGL->m_EGLSurface);
+          wl_egl_window_destroy(waylandGL->m_EGLWindow);
+        }
+        if (waylandGL->m_Surface) {
+          wl_surface_destroy(waylandGL->m_Surface);
+        }
+        if (waylandGL->layer_surface) {
+          zwlr_layer_surface_v1_destroy(waylandGL->layer_surface);
+        }
+  }
+
   const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
-      .configure = zwlr_layer_surface_configure_handler
+    .configure = zwlr_layer_surface_configure_handler,
+    .closed = zwlr_layer_surface_close_handler
   };
 
   static void keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
