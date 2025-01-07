@@ -362,6 +362,14 @@ if test "$with_wayland" = "yes"; then
   AC_SUBST(WAYLAND_CFLAGS)
   AC_SUBST(WAYLAND_LIBS)
 
+  dnl check for wayland scanner and save its path
+  PKG_CHECK_MODULES([WAYLAND_SCANNER], [wayland-scanner >= 1.14.0])
+  AC_PATH_PROG([WAYLAND_SCANNER], [wayland-scanner], [no])
+  if test "x$WAYLAND_SCANNER" = "xno"; then
+    AC_MSG_ERROR([wayland-scanner is required but not found. Please install wayland-scanner.])
+  fi
+  AC_SUBST([WAYLAND_SCANNER])
+
   dnl check for libxkbcommon
   PKG_CHECK_MODULES([XKBCOMMON], [xkbcommon >= 0.5.0])
   AC_SUBST(XKBCOMMON_CFLAGS)
@@ -388,7 +396,7 @@ if test "$IS_LINUX_GNU" = "true" && test "$with_x11" = "no" && test "$with_wayla
     AC_MSG_ERROR([On GNU/Linux, either --with-x11 or --with-wayland must be set.])
 fi
 
-AC_OUTPUT([ 
+AC_OUTPUT([
 Makefile
 Client/Makefile
 MSVC/SettingsGUI/Makefile

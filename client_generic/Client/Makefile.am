@@ -74,18 +74,37 @@ Hud.cpp \
 ../Common/Exception.cpp \
 ../Common/md5.c
 
+
 if WITH_WAYLAND
-electricsheep_SOURCES += \
-../DisplayOutput/OpenGL/xdg-shell.c \
-../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-client-protocol.c \
-../DisplayOutput/OpenGL/xdg-decoration.c
+# Wayland protocol files
+WAYLAND_PROTOCOLS_SOURCES = \
+	../DisplayOutput/OpenGL/xdg-shell-protocol.c \
+	../DisplayOutput/OpenGL/xdg-shell-client-protocol.h \
+	../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-protocol.c \
+	../DisplayOutput/OpenGL/wlr-layer-shell-unstable-v1-client-protocol.h \
+	../DisplayOutput/OpenGL/xdg-decoration-unstable-v1-protocol.c \
+	../DisplayOutput/OpenGL/xdg-decoration-unstable-v1-client-protocol.h
+
+electricsheep_SOURCES += $(WAYLAND_PROTOCOLS_SOURCES)
+BUILT_SOURCES = $(WAYLAND_PROTOCOLS_SOURCES)
+
 endif
+
+# Rules to generate the protocol files
+%-protocol.c: %.xml
+	$(WAYLAND_SCANNER) private-code < $< > $@
+
+%-client-protocol.h: %.xml
+	$(WAYLAND_SCANNER) client-header < $< > $@
 
 electricsheep_LDADD = -lboost_system -lboost_thread -lboost_filesystem -lglut \
 	$(AVCODEC_LIBS) $(AVFORMAT_LIBS) $(SWSCALE_LIBS) $(AVUTIL_LIBS) $(LUA_LIBS) $(GLU_LIBS) $(GLEE_LIBS) $(BOOST_LDADD) \
-	$(CURL_LIBS) $(PNG_LIBS) $(XRENDER_LIBS) $(LIBGTOP_LIBS) $(XRENDER_LIBS) $(WAYLAND_LIBS) $(LIBDECOR_LIBS) $(XKBCOMMON_LIBS)
+	$(CURL_LIBS) $(PNG_LIBS) $(XRENDER_LIBS) $(LIBGTOP_LIBS) $(WAYLAND_LIBS) $(LIBDECOR_LIBS) $(XKBCOMMON_LIBS)
 
 AM_CXXFLAGS = $(linux_CFLAGS) $(AVCODEC_CFLAGS) $(AVFORMAT_CFLAGS) $(SWSCALE_CFLAGS) $(AVUTIL_CFLAGS) $(LIBGTOP_CFLAGS) \
 	$(LUA_CFLAGS) $(GLU_CFLAGS) $(GLEE_CFLAGS) $(CURL_CFLAGS) $(PNG_CFLAGS) $(LUA_CFLAGS) $(XRENDER_CFLAGS) $(WAYLAND_CFLAGS) \
 	$(LIBDECOR_CFLAGS) $(XKBCOMMON_CFLAGS) $(BOOST_CXXFLAGS) -lrt -lz -lGL \
 	-D__STDC_CONSTANT_MACROS -Wno-write-strings $(AVC_DEFS)
+
+CLEANFILES = $(BUILT_SOURCES)
+

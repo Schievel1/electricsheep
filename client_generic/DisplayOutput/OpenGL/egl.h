@@ -9,28 +9,41 @@
 #endif
 
 #include <poll.h>
-#include "wlr-layer-shell-unstable-v1-client-protocol.h"
-#include "xdg-decoration.h"
-#include "xdg-shell.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <unistd.h>
 #include <wayland-client.h>
 #include <wayland-egl.h>
-
-#ifndef LINUX_GNU
-#include "GLee.h"
-#else
-#include <GLee.h>
-#endif
-#include "DisplayOutput.h"
-
-#ifdef HAVE_LIBDECOR
-#include <libdecor.h>
-#endif
-
 #include <sys/mman.h>
 #include <xkbcommon/xkbcommon.h>
+#ifdef HAVE_LIBDECOR
+  #include <libdecor.h>
+#endif
+
+#ifndef LINUX_GNU
+  #include "GLee.h"
+#else
+  #include <GLee.h>
+#endif
+
+#include "xdg-shell-client-protocol.h"
+#include "xdg-decoration-unstable-v1-client-protocol.h"
+/* HACK: unfortunately the wlr-layer-shell header file uses the namespace
+ * keyword as a variable name, which is a reserved keyword in C++. To work
+ * around this, we temporarily rename the namespace keyword to namespace_.
+ */
+#ifdef __clang__
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wkeyword-macro"
+#endif
+  #define namespace namespace_
+#ifdef __clang__
+  #pragma clang diagnostic pop
+#endif
+#include "wlr-layer-shell-unstable-v1-client-protocol.h"
+#undef namespace
+
+#include "DisplayOutput.h"
 
 namespace DisplayOutput {
 
